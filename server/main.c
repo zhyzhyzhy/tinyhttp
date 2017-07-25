@@ -3,92 +3,63 @@
 //
 #include <stdio.h>
 #include <unistd.h>
-#include <netdb.h>
 #include <stdlib.h>
-#include <arpa/inet.h>
-#include <signal.h>
-#include <sys/epoll.h>
-#include <string.h>
-#include <errno.h>
+#include <event2/buffer.h>
+#include <event2/bufferevent.h>
+#include <event.h>
+#include <event2/listener.h>
+#include <event2/util.h>
+#include <event2/event.h>
+#include "mysocket.h"
+#include "log.h"
 #include "handle.h"
 #include "sig.h"
-#include "mysocket.h"
-#include "helper.h"
 
 #define MAXEPOLL 1024
 char* index_home = "";
 int server_fd;
+struct event_base *base;
 
+int count = 0;
 int main(int argc, char *argv[])
 {
     signal(SIGINT, sig_int);
     signal(SIGKILL, sig_int);
     signal(SIGTERM, sig_int);
+    signal(SIGPIPE, SIG_IGN);
 
-    if (argc != 4) {
-        usage();
-        exit(1);
-    }
+//    if (argc != 4) {
+//        usage();
+//        exit(1);
+//    }
 
-
+    argv[1] = "127.0.0.1";
+    argv[2] = "4010";
+    argv[3] = "/Users/zhuyichen/fortest/tinydemo/v3.bootcss.com/";
     index_home = argv[3];
-    printf(index_home);
+//    printf(index_home);
     if (chdir(index_home) == -1) {
         perror("index_home : ");
         exit(1);
     }
 
-    server_fd = socket_bind_listen(argv[1], argv[2]);
-    if(server_fd == -1) {
-        exit(1);
+    int listener;
+
+    listener = socket_bind_listen(argv[1], argv[2]);
+    if (listener == -1) {
+        log_err("error in socket_bind_listen");
     }
+//    set_no_blocking(listener);
 
-    set_no_blocking(server_fd);
+    log_info("start listen ...\n");
+    base = event_base_new();
 
-    int epollfd = epoll_create(10);
-    struct epoll_event events[MAXEPOLL];
-    memset(events, 0, sizeof(events));
+    struct event* ev_listen = event_new(base, listener, EV_READ | EV_PERSIST, on_accept, NULL);
 
-    struct epoll_event event;
-    event.data.fd = server_fd;
-    event.events = EPOLLIN;
-    epoll_ctl(epollfd, EPOLL_CTL_ADD, server_fd, &event);
+    event_base_set(base, ev_listen);
 
-    while(1) {
-        int ret = epoll_wait(epollfd, events, MAXEPOLL, -1);
-        if(ret == -1) {
-            perror("ret : ");
-            exit(1);
-        } else if(ret == 0) {
-            continue;
-        }
-        else {
-            for (int i = 0; i < ret; ++i) {
-                if(events[i].events & EPOLLIN) {
-                    if(events[i].data.fd == server_fd) {
-                        while(1) {
-                            int newClientfd = accept(server_fd, NULL,0);
-                            if (newClientfd < 0) {
-                                if ((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
-                                    break;
-                                } else {
-                                    exit(3);
-                                }
-                            }
-                            set_no_blocking(newClientfd);
-                            struct epoll_event event;
-                            event.data.fd = newClientfd;
-                            event.events = EPOLLIN;
-                            epoll_ctl(epollfd, EPOLL_CTL_ADD, newClientfd, &event);
-                        }
-                    } else {
-                        response(events[i].data.fd);
-                        epoll_ctl(epollfd, EPOLL_CTL_DEL, events[i].data.fd, &events[i]);
-                    }
-                } else {
-                    continue;
-                }
-            }
-        }
-    }
+    event_add(ev_listen, NULL);
+    event_base_dispatch(base);
+    event_base_free(base);
+
 }

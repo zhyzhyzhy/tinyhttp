@@ -7,9 +7,12 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <event.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <event2/event.h>
+#include <event.h>
 //内核监听队列的最大长度
 #define BACKLOG 1024
 struct sockaddr_in get_conn_info(int connfd) {
@@ -51,9 +54,11 @@ int socket_bind_listen(char *addr, char *port) {
     return server_fd;
 }
 int set_no_blocking(int fd) {
-   if(fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
-       perror("fcntl : ");
-       exit(1);
-   }
+//   if(fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
+//       perror("fcntl : ");
+//       exit(1);
+//   }
+//
+    evutil_make_socket_nonblocking(fd);
     return 1;
 }
