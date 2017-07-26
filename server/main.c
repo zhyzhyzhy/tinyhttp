@@ -14,6 +14,7 @@
 #include "log.h"
 #include "handle.h"
 #include "sig.h"
+#include "helper.h"
 
 #define MAXEPOLL 1024
 char* index_home = "";
@@ -28,36 +29,36 @@ int main(int argc, char *argv[])
     signal(SIGTERM, sig_int);
     signal(SIGPIPE, SIG_IGN);
 
-//    if (argc != 4) {
-//        usage();
-//        exit(1);
-//    }
+    if (argc != 4) {
+        usage();
+        exit(1);
+    }
 
-    argv[1] = "127.0.0.1";
-    argv[2] = "4010";
-    argv[3] = "/Users/zhuyichen/fortest/tinydemo/v3.bootcss.com/";
+//    argv[1] = "127.0.0.1";
+//    argv[2] = "4000";
+//    argv[3] = "/Users/zhuyichen/fortest/tinydemo/v3.bootcss.com/";
     index_home = argv[3];
-//    printf(index_home);
     if (chdir(index_home) == -1) {
         perror("index_home : ");
         exit(1);
     }
 
-    int listener;
+    log_info("index home : %s\n", index_home);
 
+    int listener;
     listener = socket_bind_listen(argv[1], argv[2]);
     if (listener == -1) {
-        log_err("error in socket_bind_listen");
+        exit(1);
     }
-//    set_no_blocking(listener);
 
-    log_info("start listen ...\n");
+    set_no_blocking(listener);
+    log_info("start listen in host %s port %s ...\n", argv[1], argv[2]);
+
     base = event_base_new();
 
     struct event* ev_listen = event_new(base, listener, EV_READ | EV_PERSIST, on_accept, NULL);
 
     event_base_set(base, ev_listen);
-
     event_add(ev_listen, NULL);
     event_base_dispatch(base);
     event_base_free(base);

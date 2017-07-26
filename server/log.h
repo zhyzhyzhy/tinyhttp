@@ -10,9 +10,12 @@
 #define YELLOW  "\e[0;33m"
 
 
-#define log_info(...) fprintf(stdout, GREEN __VA_ARGS__)
+#define log_warn(...) fprintf(stdout, YELLOW "[WARNING] " __VA_ARGS__)
 
-#define log_err(...) fprintf(stderr, RED __VA_ARGS__)
+#define log_err(...) fprintf(stderr, RED "[ERROR] " __VA_ARGS__)
 
+#define log_info(...) fprintf(stdout, GREEN "[INFO] " __VA_ARGS__)
+
+#define log(...) fprintf(stdout, __VA_ARGS__)
 
 #endif //TINYHTTP_LOG_H

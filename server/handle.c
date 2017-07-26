@@ -5,6 +5,7 @@
 #include "handle.h"
 #include "mysocket.h"
 #include "log.h"
+#include "helper.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -17,6 +18,7 @@
 #include <event2/bufferevent.h>
 #include <event.h>
 #include <event2/listener.h>
+#include <sys/stat.h>
 
 extern struct event_base *base;
 http_status_pair http_status[] = {
@@ -25,39 +27,8 @@ http_status_pair http_status[] = {
         {NULL, NULL}
 };
 
+
 extern int count;
-void do_get(int connfd, char *file_name, char *file_type) {
-    char buffer[8192];
-    int fd;
-    if (strncmp(file_name, "", strlen(file_name)) == 0) {
-        fd = open("index.html", O_RDONLY);
-    } else {
-        fd = open(file_name, O_RDONLY);
-    }
-    if (fd == -1) {
-        server_error(connfd, 404);
-        return;
-    }
-//    log_info("%d\n", count++);
-    char header[1024];
-    sprintf(header, "HTTP/1.1 200 ok\r\n");
-
-    sprintf(header, "%sContent-type: %s\r\n", header, file_type);
-
-
-    int length;
-//    if ((length = (int) read(fd, buffer, 8192)) > 0) {
-    length = (int) read(fd, buffer, 8192);
-    sprintf(header, "%sContent-length: %d\r\n\r\n", header, length);
-    send(connfd, header, strlen(header), 0);
-    send(connfd, buffer, (size_t) length, 0);
-//        log_info("send message\n");
-//    }
-
-//    log_info("close fd %d\n\n", connfd);
-    close(fd);
-//    close(connfd);
-}
 
 void on_accept(int serverfd, short events, void *arg) {
 
@@ -72,8 +43,6 @@ void on_accept(int serverfd, short events, void *arg) {
     char request[8192];
 
     int connfd = accept(serverfd, NULL, 0);
-
-
 
     set_no_blocking(connfd);
 
@@ -92,6 +61,11 @@ void on_accept(int serverfd, short events, void *arg) {
 
 void on_read(int connfd, short ievent, void *arg) {
 
+    count++;
+//    if (count == 100) {
+//        exit(2);
+//    }
+
     char method[24];
     char path[1024];
     char version[24];
@@ -104,35 +78,33 @@ void on_read(int connfd, short ievent, void *arg) {
 
     struct request *request1 = (struct request*)arg;
 
-//    struct event *pwrite = (struct event *) malloc(sizeof(struct event));
     if (recv(connfd, request, 8192, 0) > 0) {
-//        printf(request);
         struct sockaddr_in client = get_conn_info(connfd);
         sscanf(request, "%s %s %s", method, path, version);
-        printf("get connect from :  %s\n", inet_ntoa(client.sin_addr));
-        log_info("response fd %d\n", connfd);
-        printf("method : %s\npath : %s\nversion : %s\n\n", method, path, version);
+        log("connect : %s\n", inet_ntoa(client.sin_addr));
+        log("response fd %d\n", connfd);
+
     }
     else {
         event_del(request1->pread);
-        event_del(request1->pwrite);
-        free(request1->pread);
-        free(request1->pwrite);
+        event_free(request1->pread);
+        event_free(request1->pwrite);
         free(request1);
-        log_info("0000close fd %d\n", connfd);
+        log("close fd %d\n", connfd);
         close(connfd);
         return;
     }
 
     strcpy(request1->method, method);
-    strcpy(request1->path, path);
+    url_decode(path, 1024, request1->path, 1024);
     strcpy(request1->version, version);
 
-
+    log("%s\t%s\t%s\t\n", method, request1->path, version);
 
     event_set(request1->pwrite, connfd, EV_WRITE, on_write, request1);
     event_base_set(base, request1->pwrite);
     event_add(request1->pwrite, NULL);
+
 }
 
 void on_write(int connfd, short ievent, void *arg) {
@@ -150,8 +122,6 @@ void on_write(int connfd, short ievent, void *arg) {
     strcpy(path, request1->path);
     strcpy(version, request1->version);
 
-    printf("method : %s\npath : %s\nversion : %s\n", method, path, version);
-//        printf("response fd = %d\n\n", connfd);
     if (strncmp(method, "GET", 3) == 0) {
         if (strstr(path, ".html") != NULL || strncmp(path + 1, "", strlen(path) - 1) == 0) {
             do_get(connfd, path + 1, "text/html");
@@ -178,10 +148,7 @@ void on_write(int connfd, short ievent, void *arg) {
         } else
             do_get(connfd, path + 1, "text/plain");
     }
-//    event_del(request1->pwrite);
-//    event_del(request1->pread);
-//    free(request1->pread);
-//    free(request1->pwrite);
+    event_del(request1->pwrite);
 }
 
 char *parse_http_code(int status) {
@@ -202,9 +169,9 @@ void server_error(int connfd, int status) {
     memset(header, 0, 1024);
     char *status_message = parse_http_code(status);
     sprintf(header, "HTTP/1.1 %d %s\r\n", status, status_message);
-    sprintf(header, "%sContent-type:text/html\r\n\r\n", header);
+    sprintf(header, "%sContent-type:text/html\r\n", header);
 
-    send(connfd, header, strlen(header), 0);
+
 
     if (status == 404) {
         char *error_message = "<html>\n"
@@ -214,6 +181,54 @@ void server_error(int connfd, int status) {
                 "<hr>"
                 "</body>\n"
                 "</html>";
+        sprintf(header, "%sContent-length: %d\r\n\r\n", header, strlen(error_message));
+        send(connfd, header, strlen(header), 0);
         send(connfd, error_message, strlen(error_message), 0);
     }
+}
+
+void do_get(int connfd, char *file_name, char *file_type) {
+    char buffer[8192];
+    int fd;
+
+    struct stat file;
+    if (strncmp(file_name, "", strlen(file_name)) == 0) {
+        file_name = "index.html";
+        fd = open("index.html", O_RDONLY);
+    } else {
+        fd = open(file_name, O_RDONLY);
+    }
+    if (fd == -1) {
+        server_error(connfd, 404);
+        return;
+    }
+    if (stat(file_name, &file) == -1) {
+        log_err("failed open %s\n", file_name);
+        close(fd);
+        return;
+    }
+
+    // send headers
+    char header[1024];
+    sprintf(header, "HTTP/1.1 200 ok\r\n");
+    sprintf(header, "%sContent-Length: %d\r\n", header, file.st_size);
+    sprintf(header, "%sContent-Type: %s\r\n\r\n", header, file_type);
+
+    send(connfd, header, strlen(header), 0);
+
+    // send body
+    size_t length;
+    length = (size_t) read(fd, buffer, 8192);
+    if (length < 8192) {
+        send(connfd, buffer, length, 0);
+    }
+    else {
+        set_blocking(connfd);
+        send(connfd, buffer, (size_t) length, 0);
+        while ((length = (size_t) read(fd, buffer, 8192)) > 0) {
+            send(connfd, buffer, length, 0);
+        };
+    }
+    //close file fd;
+    close(fd);
 }
