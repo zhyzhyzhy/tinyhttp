@@ -6,6 +6,7 @@
 #include "mysocket.h"
 #include "log.h"
 #include "helper.h"
+#include "threadpool.h"
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -20,16 +21,14 @@
 #include <event2/listener.h>
 #include <sys/stat.h>
 
-extern struct event_base *base;
 http_status_pair http_status[] = {
         {200, "OK"},
         {404, "Not Found"},
-        {NULL, NULL}
+        {100, NULL}
 };
 
-
 extern int count;
-
+extern int *notify;
 void on_accept(int serverfd, short events, void *arg) {
 
     char method[24];
@@ -46,22 +45,13 @@ void on_accept(int serverfd, short events, void *arg) {
 
     set_no_blocking(connfd);
 
-    struct event *pread = (struct event *) malloc(sizeof(struct event));
-    struct event *pwrite = (struct event *) malloc(sizeof(struct event));
-    struct request *request1 = (struct request *) malloc(sizeof(request));
-
-    request1->pread = pread;
-    request1->pwrite = pwrite;
-
-    event_set(pread, connfd, EV_READ | EV_PERSIST, on_read, request1);
-    event_base_set(base, pread);
-    event_add(pread, NULL);
+    int index = ++count % 4;
+    write(notify[index], &connfd, sizeof(int));
 }
 
 
 void on_read(int connfd, short ievent, void *arg) {
 
-    count++;
 //    if (count == 100) {
 //        exit(2);
 //    }
@@ -102,7 +92,7 @@ void on_read(int connfd, short ievent, void *arg) {
     log("%s\t%s\t%s\t\n", method, request1->path, version);
 
     event_set(request1->pwrite, connfd, EV_WRITE, on_write, request1);
-    event_base_set(base, request1->pwrite);
+    event_base_set(request1->base, request1->pwrite);
     event_add(request1->pwrite, NULL);
 
 }
@@ -181,7 +171,7 @@ void server_error(int connfd, int status) {
                 "<hr>"
                 "</body>\n"
                 "</html>";
-        sprintf(header, "%sContent-length: %d\r\n\r\n", header, strlen(error_message));
+        sprintf(header, "%sContent-length: %lu\r\n\r\n", header, strlen(error_message));
         send(connfd, header, strlen(header), 0);
         send(connfd, error_message, strlen(error_message), 0);
     }

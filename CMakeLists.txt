@@ -17,7 +17,10 @@ set(SOURCE_FILES
         server/mysocket.h
         server/sig.c
         server/sig.h
-        server/log.h)
+        server/log.h
+        server/threadpool.c
+        server/threadpool.h)
 
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread ")
 add_executable(tinyhttp ${SOURCE_FILES})
 target_link_libraries(tinyhttp event)
