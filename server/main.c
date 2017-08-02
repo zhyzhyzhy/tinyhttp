@@ -15,13 +15,14 @@
 #include "sig.h"
 #include "helper.h"
 #include "threadpool.h"
+#include <errno.h>
+#include <string.h>
 
 #define MAXEPOLL 1024
 char* index_home = "";
 int server_fd;
 struct event_base *base;
 int *notify;
-int count;
 libevent_thread_t *libevent_threads;
 int main(int argc, char *argv[])
 {
@@ -30,40 +31,38 @@ int main(int argc, char *argv[])
     signal(SIGTERM, sig_int);
     signal(SIGPIPE, SIG_IGN);
 
-    count = 0;
 //    if (argc != 4) {
 //        usage();
 //        exit(1);
 //    }
 
     argv[1] = "127.0.0.1";
-    argv[2] = "4001";
+    argv[2] = "4000";
     argv[3] = "/Users/zhuyichen/fortest/tinydemo/v3.bootcss.com/";
-    index_home = argv[3];
+
+    //change the dir
+    char* index_home = argv[3];
+    log_info("index home : %s", index_home);
     if (chdir(index_home) == -1) {
-        perror("index_home : ");
+        log_err_by_errno;
         exit(1);
     }
 
-    log_info("index home : %s\n", index_home);
+    int listen_fd = socket_bind_listen(argv[1], argv[2]);
 
-    int listener;
-    listener = socket_bind_listen(argv[1], argv[2]);
-    if (listener == -1) {
-        exit(1);
-    }
+    set_no_blocking(listen_fd);
 
-    set_no_blocking(listener);
-    log_info("start listen in host %s port %s ...\n", argv[1], argv[2]);
+    log_info("start listen in host %s port %s ...", argv[1], argv[2]);
 
     base = event_base_new();
-    libevent_threadpool_init(4, base);
-    struct event* ev_listen = event_new(base, listener, EV_READ | EV_PERSIST, on_accept, NULL);
-
+    libevent_threadpool_init(8, base);
+    struct event* ev_listen = event_new(base, listen_fd, EV_READ | EV_PERSIST, on_accept, NULL);
     event_base_set(base, ev_listen);
     event_add(ev_listen, NULL);
+
     event_base_dispatch(base);
 
     event_base_free(base);
+    event_free(ev_listen);
 
 }

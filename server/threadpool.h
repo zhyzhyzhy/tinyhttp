@@ -11,6 +11,7 @@
 struct libevent_thread_t {
     struct event_base *base;
     struct event *event;
+    struct event *timeout;
     int read_fd;
 };
 

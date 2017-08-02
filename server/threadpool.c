@@ -17,14 +17,14 @@ void on_notify(int notify_fd, short events, void *arg) {
     libevent_thread_t *libevent_thread = (libevent_thread_t*)arg;
     int conn_fd;
     if (recv(notify_fd, &conn_fd, sizeof(int), 0) > 0) {
-        struct event *pread = (struct event *) malloc(sizeof(struct event));
-        struct event *pwrite = (struct event *) malloc(sizeof(struct event));
-        struct request *request1 = (struct request *) malloc(sizeof(struct request));
+        struct http_request *request = (struct http_request *) malloc(sizeof(struct http_request));
+        struct event *pread = event_new(libevent_thread->base, conn_fd, EV_READ | EV_PERSIST, on_read, request);
 
-        request1->pread = pread;
-        request1->pwrite = pwrite;
-        request1->base = libevent_thread->base;
-        event_set(pread, conn_fd, EV_READ | EV_PERSIST, on_read, request1);
+        request->pwrite = event_new(libevent_thread->base, conn_fd, EV_WRITE, on_write, request);
+        request->pread = pread;
+        request->base = libevent_thread->base;
+
+        event_set(pread, conn_fd, EV_READ | EV_PERSIST, on_read, request);
         event_base_set(libevent_thread->base, pread);
         event_add(pread, NULL);
     }
@@ -36,6 +36,9 @@ void* start_dispatch(void *arg) {
     libevent_thread->event = event_new(libevent_thread->base, libevent_thread->read_fd, EV_READ | EV_PERSIST, on_notify, libevent_thread);
     event_base_set(libevent_thread->base, libevent_thread->event);
     event_add(libevent_thread->event, NULL);
+
+
+
     event_base_dispatch(libevent_thread->base);
 }
 

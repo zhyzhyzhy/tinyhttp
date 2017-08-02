@@ -19,19 +19,7 @@ int hex2num(char c)
     printf("unexpected char: %c", c);
     return NON_NUM;
 }
-/**
- * @brief URLDecode 对字符串URL解码,编码的逆过程
- *
- * @param str 原字符串
- * @param str_size 原字符串大小（不包括最后的\0）
- * @param result 结果字符串缓存区
- * @param result_size 结果地址的缓冲区大小(包括最后的\0)
- *
- * @return: >0 result 里实际有效的字符串长度
- *            0 解码失败
- *
- *
- */
+
 int url_decode(const char* str, const int str_size, char* result, const int result_size)
 {
     char ch,ch1,ch2;

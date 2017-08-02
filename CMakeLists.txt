@@ -19,7 +19,8 @@ set(SOURCE_FILES
         server/sig.h
         server/log.h
         server/threadpool.c
-        server/threadpool.h)
+        server/threadpool.h
+        )
 
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread ")
 add_executable(tinyhttp ${SOURCE_FILES})
