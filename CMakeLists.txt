@@ -20,6 +20,8 @@ set(SOURCE_FILES
         server/log.h
         server/threadpool.c
         server/threadpool.h
+        server/util.c
+        server/util.h
         )
 
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread ")

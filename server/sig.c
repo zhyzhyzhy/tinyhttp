@@ -7,9 +7,9 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-extern int server_fd;
-void sig_int(int sig) {
-    close(server_fd);
+extern int listen_fd;
+void sig(int sig) {
+    close(listen_fd);
     printf("\nbye\n");
     exit(0);
 }

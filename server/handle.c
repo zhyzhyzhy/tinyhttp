@@ -6,9 +6,8 @@
 #include "mysocket.h"
 #include "log.h"
 #include "helper.h"
-#include "threadpool.h"
+#include "util.h"
 #include <stdio.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -21,29 +20,30 @@
 #include <event2/listener.h>
 #include <sys/stat.h>
 
-http_status_pair http_status[] = {
-        {200, "OK"},
-        {404, "Not Found"},
-        {100, NULL}
-};
 
 extern int count;
 extern int *notify;
+
+http_status_pair http_status[] = {
+        {200, "OK"},
+        {404, "Not Found"},
+        {405, "Method Not Allowed"},
+        {NULL, NULL}
+};
+
 void on_accept(int listen_fd, short events, void *arg) {
     int conn_fd = accept(listen_fd, NULL, 0);
 
     if (conn_fd < 0) {
         return;
     }
-
     set_no_blocking(conn_fd);
     int index = ++count % 8;
-    write(notify[index], &conn_fd, sizeof(int));
+    non_blocking_write(notify[index], (char *) &conn_fd, sizeof(int));
 }
 
 
 void on_read(int conn_fd, short event, void *arg) {
-
 
     char method[24];
     char path[1024];
@@ -91,7 +91,7 @@ void on_read(int conn_fd, short event, void *arg) {
 
 }
 
-void on_write(int conn_fd, short ievent, void *arg) {
+void on_write(int conn_fd, short event, void *arg) {
 
 
     struct http_request *request = (struct http_request*)arg;
@@ -122,8 +122,11 @@ void on_write(int conn_fd, short ievent, void *arg) {
             do_get(conn_fd, path + 1, "image/jpeg");
         } else if (strstr(path, ".woff") || strstr(path, ".ttf")) {
             do_get(conn_fd, path + 1, "application/octet-stream");
-        } else
+        } else {
             do_get(conn_fd, path + 1, "text/plain");
+        }
+    } else {
+        server_error(conn_fd, 405);
     }
     event_del(request->pwrite);
 }
@@ -141,17 +144,16 @@ char *parse_http_code(int status) {
     return NULL;
 }
 
-void server_error(int connfd, int status) {
+void server_error(int conn_fd, int status) {
     char header[1024];
     memset(header, 0, 1024);
     char *status_message = parse_http_code(status);
     sprintf(header, "HTTP/1.1 %d %s\r\n", status, status_message);
     sprintf(header, "%sContent-type:text/html\r\n", header);
 
-
-
+    char *error_message;
     if (status == 404) {
-        char *error_message = "<html>\n"
+        error_message = "<html>\n"
                 "<head><title>404 Not Found</title></head>\n"
                 "<body bgcolor=\"white\">\n"
                 "<center><h1>404 Not Found</h1></center>\n"
@@ -159,12 +161,26 @@ void server_error(int connfd, int status) {
                 "</body>\n"
                 "</html>";
         sprintf(header, "%sContent-length: %lu\r\n\r\n", header, strlen(error_message));
-        send(connfd, header, strlen(header), 0);
-        send(connfd, error_message, strlen(error_message), 0);
     }
+    else if (status == 405) {
+        error_message = "<html>\n"
+                "    <head>\n"
+                "        <title>405 Not Allowed</title>\n"
+                "    </head>\n"
+                "    <body bgcolor=\"white\">\n"
+                "        <center>\n"
+                "            <h1>405 Not Allowed</h1>\n"
+                "        </center>\n"
+                "        <hr>\n"
+                "    </body>\n"
+                "</html>";
+        sprintf(header, "%sContent-length: %lu\r\n\r\n", header, strlen(error_message));
+    }
+    non_blocking_write(conn_fd, header, (int) strlen(header));
+    non_blocking_write(conn_fd, error_message, (int) strlen(error_message));
 }
 
-void do_get(int connfd, char *file_name, char *file_type) {
+void do_get(int conn_fd, char *file_name, char *file_type) {
     char buffer[8192];
     int fd;
 
@@ -176,7 +192,7 @@ void do_get(int connfd, char *file_name, char *file_type) {
         fd = open(file_name, O_RDONLY);
     }
     if (fd == -1) {
-        server_error(connfd, 404);
+        server_error(conn_fd, 404);
         return;
     }
     if (stat(file_name, &file) == -1) {
@@ -191,31 +207,14 @@ void do_get(int connfd, char *file_name, char *file_type) {
     sprintf(header, "%sContent-Length: %d\r\n", header, file.st_size);
     sprintf(header, "%sContent-Type: %s\r\n\r\n", header, file_type);
 
-    send(connfd, header, strlen(header), 0);
+    non_blocking_write(conn_fd, header, (int) strlen(header));
 
     // send body
-    int byte_count = (int) read(fd, buffer, 8192);
-    int has_write = 0;
-    int once_write = 0;
-    int left_write = byte_count;
-    while (byte_count > 0) {
-        once_write = (int) write(connfd, buffer + has_write, (size_t) left_write);
-        if (once_write < 0 ) {
-            if(errno != EINTR && errno != EWOULDBLOCK && errno != EAGAIN) {
-                return;
-            }
-            continue;
-        }
-        if (byte_count == has_write) {
-            byte_count = (int) read(fd, buffer, 8192);
-            left_write = byte_count;
-            has_write = 0;
-        }
-        else {
-            left_write -= once_write;
-            has_write += once_write;
-        }
+    int byte_count = 0;
+    while ((byte_count = (int) read(fd, buffer, 8192)) > 0) {
+        non_blocking_write(conn_fd, buffer, byte_count);
     }
+
     //close file fd;
     close(fd);
 }

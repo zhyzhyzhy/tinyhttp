@@ -4,5 +4,5 @@
 
 #ifndef WEBSERVER_SIG_H
 #define WEBSERVER_SIG_H
-void sig_int(int sig);
+void sig(int sig);
 #endif //WEBSERVER_SIG_H

@@ -36,9 +36,6 @@ void* start_dispatch(void *arg) {
     libevent_thread->event = event_new(libevent_thread->base, libevent_thread->read_fd, EV_READ | EV_PERSIST, on_notify, libevent_thread);
     event_base_set(libevent_thread->base, libevent_thread->event);
     event_add(libevent_thread->event, NULL);
-
-
-
     event_base_dispatch(libevent_thread->base);
 }
 

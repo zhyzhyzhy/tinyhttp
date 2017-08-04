@@ -7,28 +7,22 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/listener.h>
-#include <event2/util.h>
-#include <event2/event.h>
 #include "mysocket.h"
 #include "log.h"
 #include "handle.h"
 #include "sig.h"
-#include "helper.h"
 #include "threadpool.h"
-#include <errno.h>
-#include <string.h>
 
-#define MAXEPOLL 1024
 char* index_home = "";
-int server_fd;
+int listen_fd;
 struct event_base *base;
 int *notify;
 libevent_thread_t *libevent_threads;
 int main(int argc, char *argv[])
 {
-    signal(SIGINT, sig_int);
-    signal(SIGKILL, sig_int);
-    signal(SIGTERM, sig_int);
+    signal(SIGINT, sig);
+    signal(SIGKILL, sig);
+    signal(SIGTERM, sig);
     signal(SIGPIPE, SIG_IGN);
 
 //    if (argc != 4) {
@@ -37,7 +31,7 @@ int main(int argc, char *argv[])
 //    }
 
     argv[1] = "127.0.0.1";
-    argv[2] = "4000";
+    argv[2] = "4001";
     argv[3] = "/Users/zhuyichen/fortest/tinydemo/v3.bootcss.com/";
 
     //change the dir
@@ -48,11 +42,13 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    int listen_fd = socket_bind_listen(argv[1], argv[2]);
+    listen_fd = socket_bind_listen(argv[1], argv[2]);
 
     set_no_blocking(listen_fd);
 
+
     log_info("start listen in host %s port %s ...", argv[1], argv[2]);
+
 
     base = event_base_new();
     libevent_threadpool_init(8, base);
