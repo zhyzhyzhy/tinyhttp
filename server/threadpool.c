@@ -2,54 +2,62 @@
 // Created by 朱逸尘 on 2017/7/31.
 //
 
-#include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <event2/event.h>
-#include <event.h>
+#include <pthread.h>
 #include "threadpool.h"
-#include "handle.h"
 
-extern int *notify;
-int count;
-extern libevent_thread_t *libevent_threads;
-void on_notify(int notify_fd, short events, void *arg) {
-    libevent_thread_t *libevent_thread = (libevent_thread_t*)arg;
-    int conn_fd;
-    if (recv(notify_fd, &conn_fd, sizeof(int), 0) > 0) {
-        struct http_request *request = (struct http_request *) malloc(sizeof(struct http_request));
-        struct event *pread = event_new(libevent_thread->base, conn_fd, EV_READ | EV_PERSIST, on_read, request);
+void* work(void *arg) {
+    threadpool_t *pool = (threadpool_t*)arg;
 
-        request->pwrite = event_new(libevent_thread->base, conn_fd, EV_WRITE, on_write, request);
-        request->pread = pread;
-        request->base = libevent_thread->base;
+    while (1) {
+        pthread_mutex_lock(&pool->lock);
+        while(pool->job_count == 0) {
+            pthread_cond_wait(&pool->cond, &pool->lock);
+        }
+        job *job1 = pool->job_head;
+        pool->job_head = pool->job_head->next;
+        pool->job_count--;
 
-        event_set(pread, conn_fd, EV_READ | EV_PERSIST, on_read, request);
-        event_base_set(libevent_thread->base, pread);
-        event_add(pread, NULL);
+        pthread_mutex_unlock(&pool->lock);
+
+        job1->func(job1->arg);
+
+        if (pool->shutdown == 1) {
+            break;
+        }
+
+        free(job1);
     }
+
+    pthread_exit(arg);
 }
 
-void* start_dispatch(void *arg) {
-    libevent_thread_t *libevent_thread = (libevent_thread_t*)arg;
-    libevent_thread->base = event_base_new();
-    libevent_thread->event = event_new(libevent_thread->base, libevent_thread->read_fd, EV_READ | EV_PERSIST, on_notify, libevent_thread);
-    event_base_set(libevent_thread->base, libevent_thread->event);
-    event_add(libevent_thread->event, NULL);
-    event_base_dispatch(libevent_thread->base);
+threadpool_t* threadpool_init(int thread_num) {
+    threadpool_t *pool = malloc(sizeof(threadpool_t));
+
+    pool->pthreads = (pthread_t *)malloc(sizeof(pthread_t) * thread_num);
+    pool->job_head = malloc(sizeof(job));
+    pool->job_count = 0;
+    pool->thread_count = thread_num;
+    pool->shutdown = 0;
+
+    pthread_mutex_init(&pool->lock, NULL);
+    pthread_cond_init(&pool->cond, NULL);
+
+    for (int i = 0; i < thread_num; i++) {
+        pthread_create((pool->pthreads)+i, NULL, work, pool);
+    }
+    return pool;
 }
 
-int libevent_threadpool_init(int nthread, struct event_base *main_base) {
-    libevent_threads = malloc(sizeof(libevent_thread_t) * nthread);
-    notify = malloc(sizeof(int) * nthread);
-    for (int i = 0; i < nthread; i++) {
-        int fd[2];
-        socketpair(AF_UNIX, SOCK_STREAM, 0, fd);
-        libevent_thread_t *libevent_thread = &(libevent_threads[i]);
-        libevent_thread->read_fd = fd[0];
-        notify[i] = fd[1];
-        pthread_t t;
-        pthread_create(&t, NULL, start_dispatch, libevent_thread);
-    }
-    return 1;
+void add_job(threadpool_t *pool, job* job) {
+    pthread_mutex_lock(&pool->lock);
+    job->next = pool->job_head;
+    pool->job_head = job;
+    pthread_mutex_unlock(&pool->lock);
+    pthread_cond_signal(&pool->cond);
+}
+
+void thread_stop(threadpool_t *pool) {
+
 }

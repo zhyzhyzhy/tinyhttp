@@ -7,16 +7,29 @@
 
 #include <pthread.h>
 
-
-struct libevent_thread_t {
-    struct event_base *base;
-    struct event *event;
-    struct event *timeout;
-    int read_fd;
+struct job {
+    void (*func)(void *arg);
+    void *arg;
+    struct job *next;
 };
 
-typedef struct libevent_thread_t libevent_thread_t;
+typedef struct job job;
 
-int libevent_threadpool_init(int nthread, struct event_base *main_base);
+struct threadpool_t {
+    pthread_mutex_t lock;
+    pthread_cond_t cond;
+    int job_count;
+    job* job_head;
+    pthread_t *pthreads;
+    int thread_count;
+    int shutdown;
+};
+
+typedef struct threadpool_t threadpool_t;
+
+
+threadpool_t* threadpool_init(int thread_num);
+void add_job(threadpool_t *pool, job* job);
+void thread_stop(threadpool_t *pool);
 
 #endif //TINYHTTP_THREADPOOL_H
