@@ -16,8 +16,8 @@ struct job {
 typedef struct job job;
 
 struct threadpool_t {
-    pthread_mutex_t lock;
-    pthread_cond_t cond;
+    pthread_mutex_t *lock;
+    pthread_cond_t *cond;
     int job_count;
     job* job_head;
     pthread_t *pthreads;

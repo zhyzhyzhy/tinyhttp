@@ -11,7 +11,10 @@ char* parse_http_code(int status);
 void on_read(int connfd,short ievent,void *arg);
 void on_write(int connfd,short ievent,void *arg);
 
+void on_demo(void *arg);
+
 struct http_request {
+    int connfd;
     char method[24];
     char path[1024];
     char version[24];

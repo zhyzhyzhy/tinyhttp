@@ -7,6 +7,7 @@
 #include "log.h"
 #include "helper.h"
 #include "util.h"
+#include "threadpool.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -23,12 +24,12 @@
 
 extern int count;
 extern int *notify;
-
+extern threadpool_t *threadpool;
 http_status_pair http_status[] = {
         {200, "OK"},
         {404, "Not Found"},
         {405, "Method Not Allowed"},
-        {NULL, NULL}
+        {100, NULL}
 };
 
 void on_accept(int listen_fd, short events, void *arg) {
@@ -73,7 +74,7 @@ void on_read(int conn_fd, short event, void *arg) {
         //close fd
         event_del(request->pread);
         event_free(request->pread);
-        event_free(request->pwrite);
+//        event_free(request->pwrite);
         free(request);
         log("close fd %d\n", conn_fd);
         close(conn_fd);
@@ -86,13 +87,58 @@ void on_read(int conn_fd, short event, void *arg) {
 
     log("[%s\t%s\t%s\t]", method, request->path, version);
 
-    event_base_set(request->base, request->pwrite);
-    event_add(request->pwrite, NULL);
+//    event_base_set(request->base, request->pwrite);
+//    event_add(request->pwrite, NULL);
+    job *job1 = (job*)malloc(sizeof(job));
+    job1->next = NULL;
+    job1->func = on_demo;
+    job1->arg = request;
+    add_job(threadpool,job1);
+    printf("add jobs\n");
+}
 
+void on_demo(void *arg) {
+    struct http_request *request = (struct http_request*)arg;
+    char *method = request->method;
+    char *path = request->path;
+    char *version = request->version;
+    int conn_fd = request->connfd;
+    printf("cdcdcd %d\n", conn_fd);
+
+    if (strncmp(method, "GET", 3) == 0) {
+        if (strstr(path, ".html") != NULL || strncmp(path + 1, "", strlen(path) - 1) == 0) {
+            do_get(conn_fd, path + 1, "text/html");
+        } else if (strstr(path, ".js") != NULL) {
+            do_get(conn_fd, path + 1, "text/js");
+        } else if (strstr(path, ".css") != NULL) {
+            do_get(conn_fd, path + 1, "text/css");
+        } else if (strstr(path, ".xml") != NULL) {
+            do_get(conn_fd, path + 1, "text/xml");
+        } else if (strstr(path, ".xhtml") != NULL) {
+            do_get(conn_fd, path + 1, "application/xhtml+xml");
+        } else if (strstr(path, ".png") != NULL) {
+            do_get(conn_fd, path + 1, "image/png");
+        } else if (strstr(path, ".gif") != NULL) {
+            do_get(conn_fd, path + 1, "image/gif");
+        } else if (strstr(path, ".jpg") != NULL) {
+            do_get(conn_fd, path + 1, "image/jpg");
+        } else if (strstr(path, ".jpeg") != NULL) {
+            do_get(conn_fd, path + 1, "image/jpeg");
+        } else if (strstr(path, ".jpeg") != NULL) {
+            do_get(conn_fd, path + 1, "image/jpeg");
+        } else if (strstr(path, ".woff") || strstr(path, ".ttf")) {
+            do_get(conn_fd, path + 1, "application/octet-stream");
+        } else {
+            do_get(conn_fd, path + 1, "text/plain");
+        }
+    } else {
+        server_error(conn_fd, 405);
+    }
 }
 
 void on_write(int conn_fd, short event, void *arg) {
 
+//
 
     struct http_request *request = (struct http_request*)arg;
     char *method = request->method;
@@ -151,7 +197,7 @@ void server_error(int conn_fd, int status) {
     sprintf(header, "HTTP/1.1 %d %s\r\n", status, status_message);
     sprintf(header, "%sContent-type:text/html\r\n", header);
 
-    char *error_message;
+    char *error_message = NULL;
     if (status == 404) {
         error_message = "<html>\n"
                 "<head><title>404 Not Found</title></head>\n"
@@ -185,7 +231,8 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
     int fd;
 
     struct stat file;
-    if (strncmp(file_name, "", strlen(file_name)) == 0) {
+//    if (strncmp(file_name, "", strlen(file_name)) == 0) {
+    if (strcmp(file_name, "") == 0) {
         file_name = "index.html";
         fd = open("index.html", O_RDONLY);
     } else {

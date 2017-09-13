@@ -7,6 +7,7 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/listener.h>
+#include <signal.h>
 #include "mysocket.h"
 #include "log.h"
 #include "handle.h"
@@ -19,20 +20,26 @@ int listen_fd;
 struct event_base *base;
 int *notify;
 libevent_thread_t *libevent_threads;
+threadpool_t *threadpool;
 int main(int argc, char *argv[])
 {
     signal(SIGINT, sig);
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
     signal(SIGPIPE, SIG_IGN);
-
+//
 //    if (argc != 4) {
 //        usage();
 //        exit(1);
 //    }
 
+//    两个线程
+    printf("init thread\n");
+    threadpool = threadpool_init(2);
+
     argv[1] = "127.0.0.1";
     argv[2] = "4001";
+//    argv[3] = "/media/psf/Home/fortest/tinydemo/v3.bootcss.com/";
     argv[3] = "/Users/zhuyichen/fortest/tinydemo/v3.bootcss.com/";
 
     //change the dir
@@ -42,7 +49,7 @@ int main(int argc, char *argv[])
         log_err_by_errno;
         exit(1);
     }
-
+//
     listen_fd = socket_bind_listen(argv[1], argv[2]);
 
     set_no_blocking(listen_fd);
@@ -57,8 +64,11 @@ int main(int argc, char *argv[])
     event_base_set(base, ev_listen);
     event_add(ev_listen, NULL);
 
-    event_base_dispatch(base);
+    printf("cddddddddddddddd\n");
 
+
+    event_base_dispatch(base);
+//
     event_base_free(base);
     event_free(ev_listen);
 

@@ -21,9 +21,10 @@ void on_notify(int notify_fd, short events, void *arg) {
         struct http_request *request = (struct http_request *) malloc(sizeof(struct http_request));
         struct event *pread = event_new(libevent_thread->base, conn_fd, EV_READ | EV_PERSIST, on_read, request);
 
-        request->pwrite = event_new(libevent_thread->base, conn_fd, EV_WRITE, on_write, request);
+//        request->pwrite = event_new(libevent_thread->base, conn_fd, EV_WRITE, on_write, request);
         request->pread = pread;
         request->base = libevent_thread->base;
+        request->connfd = conn_fd;
 
         event_set(pread, conn_fd, EV_READ | EV_PERSIST, on_read, request);
         event_base_set(libevent_thread->base, pread);
@@ -38,6 +39,7 @@ void* start_dispatch(void *arg) {
     event_base_set(libevent_thread->base, libevent_thread->event);
     event_add(libevent_thread->event, NULL);
     event_base_dispatch(libevent_thread->base);
+    return "vvv";
 }
 
 int libevent_threadpool_init(int nthread, struct event_base *main_base) {
