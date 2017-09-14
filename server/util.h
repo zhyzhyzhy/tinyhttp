@@ -6,4 +6,5 @@
 #define TINYHTTP_UTIL_H
 
 void non_blocking_write(int conn_fd, char *buffer, int length);
+void trim(char* str);
 #endif //TINYHTTP_UTIL_H

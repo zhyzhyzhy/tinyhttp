@@ -136,46 +136,6 @@ void on_demo(void *arg) {
     }
 }
 
-void on_write(int conn_fd, short event, void *arg) {
-
-//
-
-    struct http_request *request = (struct http_request*)arg;
-    char *method = request->method;
-    char *path = request->path;
-    char *version = request->version;
-
-    if (strncmp(method, "GET", 3) == 0) {
-        if (strstr(path, ".html") != NULL || strncmp(path + 1, "", strlen(path) - 1) == 0) {
-            do_get(conn_fd, path + 1, "text/html");
-        } else if (strstr(path, ".js") != NULL) {
-            do_get(conn_fd, path + 1, "text/js");
-        } else if (strstr(path, ".css") != NULL) {
-            do_get(conn_fd, path + 1, "text/css");
-        } else if (strstr(path, ".xml") != NULL) {
-            do_get(conn_fd, path + 1, "text/xml");
-        } else if (strstr(path, ".xhtml") != NULL) {
-            do_get(conn_fd, path + 1, "application/xhtml+xml");
-        } else if (strstr(path, ".png") != NULL) {
-            do_get(conn_fd, path + 1, "image/png");
-        } else if (strstr(path, ".gif") != NULL) {
-            do_get(conn_fd, path + 1, "image/gif");
-        } else if (strstr(path, ".jpg") != NULL) {
-            do_get(conn_fd, path + 1, "image/jpg");
-        } else if (strstr(path, ".jpeg") != NULL) {
-            do_get(conn_fd, path + 1, "image/jpeg");
-        } else if (strstr(path, ".jpeg") != NULL) {
-            do_get(conn_fd, path + 1, "image/jpeg");
-        } else if (strstr(path, ".woff") || strstr(path, ".ttf")) {
-            do_get(conn_fd, path + 1, "application/octet-stream");
-        } else {
-            do_get(conn_fd, path + 1, "text/plain");
-        }
-    } else {
-        server_error(conn_fd, 405);
-    }
-    event_del(request->pwrite);
-}
 
 char *parse_http_code(int status) {
     http_status_pair pair;

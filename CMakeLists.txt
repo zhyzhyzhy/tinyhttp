@@ -22,7 +22,7 @@ set(SOURCE_FILES
         server/threadpool.h
         server/util.c
         server/util.h
-        server/subreactor.c server/subreactor.h)
+        server/subreactor.c server/subreactor.h server/config.c server/config.h)
 
 set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread ")
 add_executable(tinyhttp ${SOURCE_FILES})

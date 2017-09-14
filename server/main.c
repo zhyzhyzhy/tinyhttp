@@ -14,6 +14,7 @@
 #include "sig.h"
 #include "threadpool.h"
 #include "subreactor.h"
+#include "config.h"
 
 char* index_home = "";
 int listen_fd;
@@ -27,15 +28,18 @@ int main(int argc, char *argv[])
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
     signal(SIGPIPE, SIG_IGN);
-//
-//    if (argc != 4) {
-//        usage();
-//        exit(1);
-//    }
 
-//    两个线程
     printf("init thread\n");
-    threadpool = threadpool_init(2);
+//    threadpool = threadpool_init(2);
+
+
+
+    server_config config;
+    read_config("/Users/zhuyichen/fortest/config.txt", &config);
+    printf("%s\n", config.index_file_name);
+    printf("%s\n", config.target_dir);
+    printf("%d\n",config.thread_num);
+    printf("%d\n", config.sub_reactor);
 
     argv[1] = "127.0.0.1";
     argv[2] = "4001";
@@ -49,7 +53,7 @@ int main(int argc, char *argv[])
         log_err_by_errno;
         exit(1);
     }
-//
+
     listen_fd = socket_bind_listen(argv[1], argv[2]);
 
     set_no_blocking(listen_fd);
@@ -64,11 +68,8 @@ int main(int argc, char *argv[])
     event_base_set(base, ev_listen);
     event_add(ev_listen, NULL);
 
-    printf("cddddddddddddddd\n");
-
 
     event_base_dispatch(base);
-//
     event_base_free(base);
     event_free(ev_listen);
 
