@@ -7,7 +7,7 @@
 #define NON_NUM '0'
 
 void usage() {
-    fprintf(stderr, "usage :: WebServer host port index_home\n");
+    fprintf(stderr, "usage :: ./WebServer config_filename\n");
 }
 
 int hex2num(char c)

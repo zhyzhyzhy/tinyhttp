@@ -42,6 +42,12 @@ void read_config(char* file_name, server_config *config) {
         else if(strcmp(item, "index_file_name") == 0) {
             strcpy(config->index_file_name, item + i + 1);
         }
+        else if(strcmp(item, "host") == 0) {
+            strcpy(config->host, item + i + 1);
+        }
+        else if(strcmp(item, "port") == 0) {
+            strcpy(config->port, item + i + 1);
+        }
 
         memset(item, 0, LINE);
     }

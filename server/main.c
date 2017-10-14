@@ -16,54 +16,48 @@
 #include "subreactor.h"
 #include "config.h"
 
-char* index_home = "";
 int listen_fd;
 struct event_base *base;
 int *notify;
-libevent_thread_t *libevent_threads;
+libevent_reactor_t *libevent_reactors;
 threadpool_t *threadpool;
+server_config config;
 int main(int argc, char *argv[])
 {
+    signal(SIGPIPE, SIG_IGN);
     signal(SIGINT, sig);
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
-    signal(SIGPIPE, SIG_IGN);
-
-    printf("init thread\n");
-//    threadpool = threadpool_init(2);
 
 
-
-    server_config config;
     read_config("/Users/zhuyichen/fortest/config.txt", &config);
-    printf("%s\n", config.index_file_name);
-    printf("%s\n", config.target_dir);
-    printf("%d\n",config.thread_num);
-    printf("%d\n", config.sub_reactor);
 
-    argv[1] = "127.0.0.1";
-    argv[2] = "4001";
-//    argv[3] = "/media/psf/Home/fortest/tinydemo/v3.bootcss.com/";
-    argv[3] = "/Users/zhuyichen/fortest/tinydemo/v3.bootcss.com/";
+    log_info("index_file_name: %s", config.index_file_name);
+    log_info("target_dir: %s", config.target_dir);
+    log_info("thread_num: %d", config.thread_num);
+    log_info("sub_reactor: %d", config.sub_reactor);
+    log_info("listen_host: %s", config.host);
+    log_info("listen_post: %s", config.port);
+
 
     //change the dir
-    char* index_home = argv[3];
-    log_info("index home : %s", index_home);
-    if (chdir(index_home) == -1) {
+    if (chdir(config.target_dir) == -1) {
         log_err_by_errno;
         exit(1);
     }
 
-    listen_fd = socket_bind_listen(argv[1], argv[2]);
-
+    //bind and listen
+    listen_fd = socket_bind_listen(config.host, config.port);
     set_no_blocking(listen_fd);
 
+    //init threadpool
+    threadpool = threadpool_init(config.thread_num);
 
-    log_info("start listen in host %s port %s ...", argv[1], argv[2]);
+    log_info("start listen in host %s port %s ...", config.host, config.port);
 
-
+    //main reactor
     base = event_base_new();
-    libevent_threadpool_init(8, base);
+    libevent_reactors_init(config.sub_reactor, base);
     struct event* ev_listen = event_new(base, listen_fd, EV_READ | EV_PERSIST, on_accept, NULL);
     event_base_set(base, ev_listen);
     event_add(ev_listen, NULL);

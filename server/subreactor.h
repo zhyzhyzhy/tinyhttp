@@ -7,15 +7,15 @@
 #include <pthread.h>
 
 
-struct libevent_thread_t {
+struct libevent_reactor_t {
     struct event_base *base;
     struct event *event;
     struct event *timeout;
     int read_fd;
 };
 
-typedef struct libevent_thread_t libevent_thread_t;
+typedef struct libevent_reactor_t libevent_reactor_t;
 
-int libevent_threadpool_init(int nthread, struct event_base *main_base);
+int libevent_reactors_init(int nreactor, struct event_base *main_base);
 
 #endif //TINYHTTP_SUBREACTOR_H

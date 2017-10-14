@@ -6,21 +6,22 @@
 #include <pthread.h>
 #include <stdio.h>
 #include "threadpool.h"
+#include "log.h"
 
 
 void* work(void *arg) {
     threadpool_t *pool = (threadpool_t*)arg;
 
-    printf("start thread\n");
+//    printf("start thread\n");
     while (1) {
         pthread_mutex_lock(pool->lock);
         while(pool->job_count == 0) {
-            printf("sleep\n");
+//            printf("sleep\n");
             pthread_cond_wait(pool->cond, pool->lock);
-            printf("wake\n");
+//            printf("wake\n");
             if (pool->shutdown == 1) {
                 pthread_mutex_unlock(pool->lock);
-                printf("exit thread\n");
+//                printf("exit thread\n");
                 pthread_exit(arg);
             }
         }
@@ -30,7 +31,7 @@ void* work(void *arg) {
 
         pthread_mutex_unlock(pool->lock);
 
-        printf("process jobs\n");
+//        printf("process jobs\n");
         job1->func(job1->arg);
 
         if (pool->shutdown == 1) {
@@ -39,10 +40,12 @@ void* work(void *arg) {
 
         free(job1);
     }
-    printf("thread exit");
+//    printf("thread exit");
 }
 
 threadpool_t* threadpool_init(int thread_num) {
+
+    log_info("init threadpool with thread num %d", thread_num);
 
     threadpool_t *pool = (threadpool_t*)malloc(sizeof(threadpool_t));
 
@@ -71,7 +74,6 @@ void add_job(threadpool_t *pool, job* job) {
     pool->job_count++;
     pthread_mutex_unlock(pool->lock);
     pthread_cond_signal(pool->cond);
-    printf("signal lock\n");
 }
 
 void thread_stop(threadpool_t *pool) {

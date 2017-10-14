@@ -8,11 +8,11 @@
 #include "helper.h"
 #include "util.h"
 #include "threadpool.h"
+#include "config.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <event2/buffer.h>
@@ -20,17 +20,22 @@
 #include <event.h>
 #include <event2/listener.h>
 #include <sys/stat.h>
+#include <arpa/inet.h>
 
 
-extern int count;
 extern int *notify;
 extern threadpool_t *threadpool;
+extern server_config config;
+
+static int count;
 http_status_pair http_status[] = {
         {200, "OK"},
         {404, "Not Found"},
         {405, "Method Not Allowed"},
-        {100, NULL}
+        {500, "Internal Server Error"},
+        {-1, NULL}
 };
+
 
 void on_accept(int listen_fd, short events, void *arg) {
     int conn_fd = accept(listen_fd, NULL, 0);
@@ -39,7 +44,7 @@ void on_accept(int listen_fd, short events, void *arg) {
         return;
     }
     set_no_blocking(conn_fd);
-    int index = ++count % 8;
+    int index = ++count % config.sub_reactor;
     non_blocking_write(notify[index], (char *) &conn_fd, sizeof(int));
 }
 
@@ -62,8 +67,8 @@ void on_read(int conn_fd, short event, void *arg) {
     if (receive_count > 0) {
         struct sockaddr_in client = get_conn_info(conn_fd);
         sscanf(request_head, "%s %s %s", method, path, version);
-        log("[connect : %s]", inet_ntoa(client.sin_addr));
-        log("[response fd %d]", conn_fd);
+//        log("[connect : %s]", inet_ntoa(client.sin_addr));
+//        log("[response fd %d]", conn_fd);
     }
     else if (receive_count < 0 && errno != EAGAIN){
         return;
@@ -74,9 +79,8 @@ void on_read(int conn_fd, short event, void *arg) {
         //close fd
         event_del(request->pread);
         event_free(request->pread);
-//        event_free(request->pwrite);
         free(request);
-        log("close fd %d\n", conn_fd);
+//        log("close fd %d\n", conn_fd);
         close(conn_fd);
         return;
     }
@@ -85,16 +89,15 @@ void on_read(int conn_fd, short event, void *arg) {
     url_decode(path, 1024, request->path, 1024);
     strcpy(request->version, version);
 
-    log("[%s\t%s\t%s\t]", method, request->path, version);
+    struct sockaddr_in client_info = get_conn_info(conn_fd);
+    log("%s\t%s\t%s\t%s\t", inet_ntoa(client_info.sin_addr), method, request->path, version);
 
-//    event_base_set(request->base, request->pwrite);
-//    event_add(request->pwrite, NULL);
     job *job1 = (job*)malloc(sizeof(job));
     job1->next = NULL;
     job1->func = on_demo;
     job1->arg = request;
     add_job(threadpool,job1);
-    printf("add jobs\n");
+//    printf("add jobs\n");
 }
 
 void on_demo(void *arg) {
@@ -103,7 +106,6 @@ void on_demo(void *arg) {
     char *path = request->path;
     char *version = request->version;
     int conn_fd = request->connfd;
-    printf("cdcdcd %d\n", conn_fd);
 
     if (strncmp(method, "GET", 3) == 0) {
         if (strstr(path, ".html") != NULL || strncmp(path + 1, "", strlen(path) - 1) == 0) {
@@ -191,9 +193,8 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
     int fd;
 
     struct stat file;
-//    if (strncmp(file_name, "", strlen(file_name)) == 0) {
     if (strcmp(file_name, "") == 0) {
-        file_name = "index.html";
+        file_name = config.index_file_name;
         fd = open("index.html", O_RDONLY);
     } else {
         fd = open(file_name, O_RDONLY);
