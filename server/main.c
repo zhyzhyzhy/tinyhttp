@@ -15,6 +15,7 @@
 #include "threadpool.h"
 #include "subreactor.h"
 #include "config.h"
+#include "mempool.h"
 
 int listen_fd;
 struct event_base *base;
@@ -29,6 +30,7 @@ int main(int argc, char *argv[])
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
 
+    mempool_init(20, 2, sizeof(struct http_request), sizeof(job));
 
     read_config("/Users/zhuyichen/fortest/config.txt", &config);
 

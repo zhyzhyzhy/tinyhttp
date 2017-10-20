@@ -9,6 +9,7 @@
 #include "util.h"
 #include "threadpool.h"
 #include "config.h"
+#include "mempool.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/socket.h>
@@ -79,7 +80,7 @@ void on_read(int conn_fd, short event, void *arg) {
         //close fd
         event_del(request->pread);
         event_free(request->pread);
-        free(request);
+        mfree(request);
 //        log("close fd %d\n", conn_fd);
         close(conn_fd);
         return;
@@ -92,7 +93,7 @@ void on_read(int conn_fd, short event, void *arg) {
     struct sockaddr_in client_info = get_conn_info(conn_fd);
     log("%s\t%s\t%s\t%s\t", inet_ntoa(client_info.sin_addr), method, request->path, version);
 
-    job *job1 = (job*)malloc(sizeof(job));
+    job *job1 = (job*)mmalloc(sizeof(job));
     job1->next = NULL;
     job1->func = on_demo;
     job1->arg = request;

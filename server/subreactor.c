@@ -10,6 +10,7 @@
 #include <event.h>
 #include "threadpool.h"
 #include "handle.h"
+#include "mempool.h"
 
 extern int *notify;
 int count;
@@ -18,7 +19,7 @@ void on_notify(int notify_fd, short events, void *arg) {
     libevent_reactor_t *libevent_thread = (libevent_reactor_t*)arg;
     int conn_fd;
     if (recv(notify_fd, &conn_fd, sizeof(int), 0) > 0) {
-        struct http_request *request = (struct http_request *) malloc(sizeof(struct http_request));
+        struct http_request *request = (struct http_request *) mmalloc(sizeof(struct http_request));
         struct event *pread = event_new(libevent_thread->base, conn_fd, EV_READ | EV_PERSIST, on_read, request);
 
 //        request->pwrite = event_new(libevent_thread->base, conn_fd, EV_WRITE, on_write, request);

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include "threadpool.h"
 #include "log.h"
+#include "mempool.h"
 
 
 void* work(void *arg) {
@@ -38,7 +39,7 @@ void* work(void *arg) {
             break;
         }
 
-        free(job1);
+        mfree(job1);
     }
 //    printf("thread exit");
 }
