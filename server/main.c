@@ -30,9 +30,9 @@ int main(int argc, char *argv[])
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
 
-    mempool_init(20, 2, sizeof(struct http_request), sizeof(job));
+    mempool_init(30, 2, sizeof(struct http_request), sizeof(job));
 
-    read_config("/Users/zhuyichen/fortest/config.txt", &config);
+    read_config("/Users/zhuyichen/git/tinyhttp/config.txt", &config);
 
     log_info("index_file_name: %s", config.index_file_name);
     log_info("target_dir: %s", config.target_dir);

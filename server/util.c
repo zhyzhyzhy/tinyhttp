@@ -3,6 +3,7 @@
 //
 
 #include "util.h"
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
@@ -43,4 +44,12 @@ void trim(char *str) {
             i++;
         }
     }
+}
+
+int is_end_with_ch(char* str, char ch) {
+    int length = strlen(str);
+    if (str[length-1] == ch) {
+        return 1;
+    }
+    return 0;
 }

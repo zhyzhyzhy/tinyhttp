@@ -109,7 +109,14 @@ void on_demo(void *arg) {
     int conn_fd = request->connfd;
 
     if (strncmp(method, "GET", 3) == 0) {
-        if (strstr(path, ".html") != NULL || strncmp(path + 1, "", strlen(path) - 1) == 0) {
+        if (is_end_with_ch(path, '/')) {
+            char str[1024];
+            memset(str, 0, 1024);
+            strcpy(str, path);
+            strcat(str, "index.html");
+            do_get(conn_fd, str + 1, "text/html");
+        }
+        else if (strstr(path, ".html") != NULL || strncmp(path + 1, "", strlen(path) - 1) == 0 ) {
             do_get(conn_fd, path + 1, "text/html");
         } else if (strstr(path, ".js") != NULL) {
             do_get(conn_fd, path + 1, "text/js");
@@ -196,7 +203,7 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
     struct stat file;
     if (strcmp(file_name, "") == 0) {
         file_name = config.index_file_name;
-        fd = open("index.html", O_RDONLY);
+        fd = open(file_name, O_RDONLY);
     } else {
         fd = open(file_name, O_RDONLY);
     }
