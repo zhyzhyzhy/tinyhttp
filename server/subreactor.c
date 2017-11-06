@@ -22,7 +22,16 @@ void on_notify(int notify_fd, short events, void *arg) {
         struct http_request *request = (struct http_request *) mmalloc(sizeof(struct http_request));
         struct event *pread = event_new(libevent_thread->base, conn_fd, EV_READ | EV_PERSIST, on_read, request);
 
-//        request->pwrite = event_new(libevent_thread->base, conn_fd, EV_WRITE, on_write, request);
+        struct event* timeout = evtimer_new(libevent_thread->base, on_timeout, request);
+
+        struct timeval* tv = malloc(sizeof(struct tv));
+        tv->tv_sec = 20*60;
+        tv->tv_usec = 0;
+        evtimer_add(timeout, tv);
+
+        request->timeout = timeout;
+        request->tv = tv;
+
         request->pread = pread;
         request->base = libevent_thread->base;
         request->connfd = conn_fd;

@@ -13,16 +13,12 @@
 void* work(void *arg) {
     threadpool_t *pool = (threadpool_t*)arg;
 
-//    printf("start thread\n");
     while (1) {
         pthread_mutex_lock(pool->lock);
         while(pool->job_count == 0) {
-//            printf("sleep\n");
             pthread_cond_wait(pool->cond, pool->lock);
-//            printf("wake\n");
             if (pool->shutdown == 1) {
                 pthread_mutex_unlock(pool->lock);
-//                printf("exit thread\n");
                 pthread_exit(arg);
             }
         }
@@ -32,7 +28,6 @@ void* work(void *arg) {
 
         pthread_mutex_unlock(pool->lock);
 
-//        printf("process jobs\n");
         job1->func(job1->arg);
 
         if (pool->shutdown == 1) {
@@ -41,7 +36,6 @@ void* work(void *arg) {
 
         mfree(job1);
     }
-//    printf("thread exit");
 }
 
 threadpool_t* threadpool_init(int thread_num) {

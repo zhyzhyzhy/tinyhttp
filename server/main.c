@@ -64,7 +64,6 @@ int main(int argc, char *argv[])
     event_base_set(base, ev_listen);
     event_add(ev_listen, NULL);
 
-
     event_base_dispatch(base);
     event_base_free(base);
     event_free(ev_listen);

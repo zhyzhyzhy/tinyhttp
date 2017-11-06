@@ -91,7 +91,7 @@ void on_read(int conn_fd, short event, void *arg) {
     strcpy(request->version, version);
 
     struct sockaddr_in client_info = get_conn_info(conn_fd);
-    log("%s\t%s\t%s\t%s\t", inet_ntoa(client_info.sin_addr), method, request->path, version);
+    log("%s\t%s\t%24s\t%s\t", inet_ntoa(client_info.sin_addr), method, request->path, version);
 
     job *job1 = (job*)mmalloc(sizeof(job));
     job1->next = NULL;
@@ -221,6 +221,7 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
     char header[1024];
     sprintf(header, "HTTP/1.1 200 ok\r\n");
     sprintf(header, "%sContent-Length: %d\r\n", header, file.st_size);
+    sprintf(header, "%sConnection: keep-alive\r\n", header);
     sprintf(header, "%sContent-Type: %s\r\n\r\n", header, file_type);
 
     non_blocking_write(conn_fd, header, (int) strlen(header));
@@ -233,4 +234,9 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
 
     //close file fd;
     close(fd);
+}
+void on_timeout(int connfd, short event, void *arg) {
+    struct http_request *request = (struct http_request *)arg;
+    event_del(request->timeout);
+    free(request->tv);
 }

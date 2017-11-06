@@ -53,12 +53,12 @@ void* memblock_init(memblock_t* block, int nodesize, int num) {
         p->next = NULL;
     }
 
-    memnode_t* q = block->openList;
-    while (q != NULL) {
-        printf("%p\n", q->data);
-        q = q->next;
-    }
-    printf("\n\n");
+//    memnode_t* q = block->openList;
+//    while (q != NULL) {
+//        printf("%p\n", q->data);
+//        q = q->next;
+//    }
+//    printf("\n\n");
 }
 
 
@@ -109,7 +109,7 @@ void* bmalloc(memblock_t* block) {
     block->openList = node->next;
     block->freenum--;
     pthread_mutex_unlock(block->openListLock);
-    printf("bmalloc = %p\n", (void*)node->data);
+//    printf("bmalloc = %p\n", (void*)node->data);
     return node->data;
 }
 
@@ -128,7 +128,7 @@ void* mmalloc(int size) {
 void bfree(memblock_t* block, void* ptr) {
     pthread_mutex_lock(block->openListLock);
     memnode_t* node = (memnode_t*)((char*)ptr - sizeof(memnode_t));
-    printf("bfree =   %p\n", ptr);
+//    printf("bfree =   %p\n", ptr);
     node->next = block->openList;
     block->openList = node;
     block->freenum++;
