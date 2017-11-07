@@ -3,14 +3,14 @@
 //
 
 #include "handle.h"
-#include "mysocket.h"
 #include "log.h"
-#include "helper.h"
 #include "util.h"
 #include "threadpool.h"
 #include "config.h"
+#include "parser.h"
+#include "mysocket.h"
 #include "mempool.h"
-#include <stdio.h>
+#include "helper.h"
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -28,28 +28,37 @@ extern int *notify;
 extern threadpool_t *threadpool;
 extern server_config config;
 
+//the count of the request
+//for the use of allocation to subReactor
+//see #on_accept
 static int count;
-http_status_pair http_status[] = {
-        {200, "OK"},
-        {404, "Not Found"},
-        {405, "Method Not Allowed"},
-        {500, "Internal Server Error"},
-        {-1, NULL}
-};
 
-
+/**
+ * the callback of the accept event
+ * send the connect fd to subReactor
+ * @param listen_fd the fd that listen on accept event
+ * @param events    the bits that represents listen_fd events
+ * @param arg       is NULL in this method
+ */
 void on_accept(int listen_fd, short events, void *arg) {
     int conn_fd = accept(listen_fd, NULL, 0);
-
     if (conn_fd < 0) {
         return;
     }
+
     set_no_blocking(conn_fd);
+    debug("the count is %d ", count);
     int index = ++count % config.sub_reactor;
     non_blocking_write(notify[index], (char *) &conn_fd, sizeof(int));
 }
 
 
+/**
+ * the callback of read event
+ * @param conn_fd  the client connection fd
+ * @param event
+ * @param arg      struct http_request*
+ */
 void on_read(int conn_fd, short event, void *arg) {
 
     char method[24];
@@ -61,29 +70,39 @@ void on_read(int conn_fd, short event, void *arg) {
     memset(version, 0, 24);
 
     char request_head[8192];
+    memset(request_head, 0, 8192);
 
     struct http_request *request = (struct http_request*)arg;
 
-    ssize_t receive_count = recv(conn_fd, request_head, 8192, 0);
-    if (receive_count > 0) {
-        struct sockaddr_in client = get_conn_info(conn_fd);
-        sscanf(request_head, "%s %s %s", method, path, version);
-//        log("[connect : %s]", inet_ntoa(client.sin_addr));
-//        log("[response fd %d]", conn_fd);
-    }
-    else if (receive_count < 0 && errno != EAGAIN){
-        return;
-    }
-    else {
-        //receive_count < 0 encounter error
-        //or receive count == 0 close connection
-        //close fd
-        event_del(request->pread);
-        event_free(request->pread);
-        mfree(request);
-//        log("close fd %d\n", conn_fd);
-        close(conn_fd);
-        return;
+    int has_read = 0;
+    for(;;) {
+        ssize_t receive_count = recv(conn_fd, request_head + has_read, 8192 - has_read, 0);
+        has_read += receive_count;
+        if (receive_count > 0) {
+            //防止读半包问题，如果没有读完，则继续读
+            if (!check_read_done(request_head)) {
+                continue;
+            }
+            else {
+                struct sockaddr_in client = get_conn_info(conn_fd);
+                sscanf(request_head, "%s %s %s", method, path, version);
+                break;
+            }
+        }
+        else if (receive_count < 0 && errno != EAGAIN){
+            return;
+        }
+        else {
+            //receive_count < 0 encounter error
+            //or receive count == 0 close connection
+            //close fd
+            event_del(request->pread);
+            event_free(request->pread);
+            mfree(request);
+            close(conn_fd);
+            return;
+        }
+
     }
 
     strcpy(request->method, method);
@@ -91,17 +110,16 @@ void on_read(int conn_fd, short event, void *arg) {
     strcpy(request->version, version);
 
     struct sockaddr_in client_info = get_conn_info(conn_fd);
-    log("%s\t%s\t%24s\t%s\t", inet_ntoa(client_info.sin_addr), method, request->path, version);
+    log("%s\t %s\t %-24s\t %s\t", inet_ntoa(client_info.sin_addr), request->method, request->path, request->version);
 
-    job *job1 = (job*)mmalloc(sizeof(job));
-    job1->next = NULL;
-    job1->func = on_demo;
-    job1->arg = request;
-    add_job(threadpool,job1);
-//    printf("add jobs\n");
+    thread_job *current_job = (thread_job*)mmalloc(sizeof(thread_job));
+    current_job->next = NULL;
+    current_job->func = process_request;
+    current_job->arg = request;
+    add_job(threadpool, current_job);
 }
 
-void on_demo(void *arg) {
+void process_request(void *arg) {
     struct http_request *request = (struct http_request*)arg;
     char *method = request->method;
     char *path = request->path;
@@ -146,19 +164,6 @@ void on_demo(void *arg) {
     }
 }
 
-
-char *parse_http_code(int status) {
-    http_status_pair pair;
-    int i = 0;
-    pair = http_status[i];
-    while (pair.status_message != NULL) {
-        if (pair.status_code == status) {
-            return pair.status_message;
-        }
-        pair = http_status[++i];
-    }
-    return NULL;
-}
 
 void server_error(int conn_fd, int status) {
     char header[1024];
@@ -220,8 +225,9 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
     // send headers
     char header[1024];
     sprintf(header, "HTTP/1.1 200 ok\r\n");
-    sprintf(header, "%sContent-Length: %d\r\n", header, file.st_size);
+    sprintf(header, "%sContent-Length: %lld\r\n", header, file.st_size);
     sprintf(header, "%sConnection: keep-alive\r\n", header);
+    sprintf(header, "%sServer: zhuyichen's server\r\n", header);
     sprintf(header, "%sContent-Type: %s\r\n\r\n", header, file_type);
 
     non_blocking_write(conn_fd, header, (int) strlen(header));
@@ -238,5 +244,5 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
 void on_timeout(int connfd, short event, void *arg) {
     struct http_request *request = (struct http_request *)arg;
     event_del(request->timeout);
-    free(request->tv);
+    mfree(request->tv);
 }

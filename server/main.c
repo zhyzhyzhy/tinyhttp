@@ -7,7 +7,6 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/listener.h>
-#include <signal.h>
 #include "mysocket.h"
 #include "log.h"
 #include "handle.h"
@@ -23,6 +22,7 @@ int *notify;
 libevent_reactor_t *libevent_reactors;
 threadpool_t *threadpool;
 server_config config;
+
 int main(int argc, char *argv[])
 {
     signal(SIGPIPE, SIG_IGN);
@@ -30,8 +30,7 @@ int main(int argc, char *argv[])
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
 
-    mempool_init(30, 2, sizeof(struct http_request), sizeof(job));
-
+    mempool_init(30, 3, sizeof(struct http_request), sizeof(thread_job), sizeof(struct timeval));
     read_config("/Users/zhuyichen/git/tinyhttp/config.txt", &config);
 
     log_info("index_file_name: %s", config.index_file_name);
@@ -64,8 +63,8 @@ int main(int argc, char *argv[])
     event_base_set(base, ev_listen);
     event_add(ev_listen, NULL);
 
+
     event_base_dispatch(base);
     event_base_free(base);
     event_free(ev_listen);
-
 }

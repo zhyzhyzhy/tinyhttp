@@ -7,12 +7,11 @@
 void do_get(int connfd, char* file_name, char* file_type);
 void on_accept(int serverfd,short events, void* arg);
 void server_error(int connfd, int status);
-char* parse_http_code(int status);
-void on_read(int connfd,short ievent,void *arg);
+void on_read(int connfd,short event,void *arg);
 
-void on_demo(void *arg);
-
+void process_request(void *arg);
 void on_timeout(int connfd, short event, void *arg);
+
 struct http_request {
     int connfd;
     char method[24];

@@ -1,8 +1,3 @@
-//
-// Created by 朱逸尘 on 2017/10/20.
-//
-
-
 /*
  *
  * 看了一下，主要是struct httpRequest的分配和job的分配较多
@@ -17,7 +12,6 @@
 #include "mempool.h"
 #include "log.h"
 
-extern mempool_t* mempool;
 
 void* memnode_init(char* startaddr, memnode_t* next) {
     memnode_t* node = (memnode_t*)startaddr;

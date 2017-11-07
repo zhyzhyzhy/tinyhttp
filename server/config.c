@@ -9,6 +9,12 @@
 #include "util.h"
 
 #define LINE 1024
+
+/**
+ * read runtime config from the config file and save to the server_config struct
+ * @param file_name the path of the config file
+ * @param config server_config entity
+ */
 void read_config(char* file_name, server_config *config) {
     FILE* config_file = fopen(file_name, "r");
     if (config_file == NULL) {

@@ -4,25 +4,30 @@
 
 #include "sig.h"
 #include "threadpool.h"
+#include "log.h"
+#include "subreactor.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
 extern int listen_fd;
 extern threadpool_t *threadpool;
+
+/**
+ * response for the signal SIGPIPE SIGINT SIGKILL SIGTERM
+ * free the memory pool and thread pool and close the listen fd
+ * @param sig
+ */
 void sig(int sig) {
+    //close the listen fd
     close(listen_fd);
-    threadpool->shutdown = 1;
-    printf("\nbye\n");
-    pthread_cond_broadcast(threadpool->cond);
-    for (int i = 0; i < threadpool->thread_count; i++) {
-        printf("i join\n");
-        pthread_join((threadpool->pthreads)[i], NULL);
-    }
-    free(threadpool->lock);
-    free(threadpool->cond);
-    free(threadpool->job_head);
-    free(threadpool->pthreads);
-    free(threadpool);
+
+    //clear thread pool
+    threadpool_destroy(threadpool);
+
+    //clear sub reactors
+    libevent_reactors_destroy();
+    //log bye!
+    log_info("\nbye\n");
     exit(0);
 }

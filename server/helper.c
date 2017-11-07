@@ -6,10 +6,18 @@
 
 #define NON_NUM '0'
 
+/**
+ * printf the usage for the server
+ */
 void usage() {
     fprintf(stderr, "usage :: ./WebServer config_filename\n");
 }
 
+/**
+ * judge whether the target char is 0-9 or a-z or A-Z
+ * @param c the target char need to be judged
+ * @return
+ */
 int hex2num(char c)
 {
     if (c>='0' && c<='9') return c - '0';
