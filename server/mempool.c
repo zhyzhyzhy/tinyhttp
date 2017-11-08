@@ -34,6 +34,7 @@ void *memnode_init(char *startaddr, memnode_t *next) {
  */
 void *memblock_init(memblock_t *block, int nodesize, int num) {
     block->nodesize = nodesize;
+    block->b_start_addr = NULL;
     block->b_start_addr = malloc((size_t) (nodesize + sizeof(memnode_t)) * num);
     block->b_end_addr = block->b_start_addr + (nodesize + sizeof(memnode_t)) * num;
     block->freenum = num;
@@ -61,6 +62,7 @@ void *memblock_init(memblock_t *block, int nodesize, int num) {
         p->next = NULL;
     }
 
+    return NULL;
 //    memnode_t* q = block->openList;
 //    while (q != NULL) {
 //        printf("%p\n", q->data);
@@ -106,7 +108,7 @@ void *mempool_init(int num, int blocksizenums, ...) {
  * @param block
  * @return
  */
-void *bmalloc(memblock_t *block) {
+void* bmalloc(memblock_t *block) {
     memblock_t *blockhead = block;
     memblock_t *tailblock = block;
     //check if has enough node
@@ -130,8 +132,8 @@ void *bmalloc(memblock_t *block) {
     pthread_mutex_lock(tailblock->openListLock);
     //new one block of target size
     block = malloc(sizeof(memblock_t));
-    memblock_t *newblock = memblock_init(block, blockhead->nodesize, blockhead->toalnum);
-    tailblock->next = newblock;
+    memblock_init(block, blockhead->nodesize, blockhead->toalnum);
+    tailblock->next = block;
     pthread_mutex_unlock(tailblock->openListLock);
     //then bmalloc again
     return bmalloc(blockhead);

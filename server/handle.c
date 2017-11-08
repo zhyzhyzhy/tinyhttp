@@ -15,13 +15,14 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
-#include <stdlib.h>
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event.h>
 #include <event2/listener.h>
 #include <sys/stat.h>
 #include <arpa/inet.h>
+#include <signal.h>
+#include <stdlib.h>
 
 
 extern int *notify;
@@ -104,10 +105,11 @@ void on_read(int conn_fd, short event, void *arg) {
 
     strcpy(request->method, method);
     url_decode(path, 1024, request->path);
+//    strcpy(path, request->path);
     strcpy(request->version, version);
 
-    struct sockaddr_in client_info = get_conn_info(conn_fd);
-    log("%s\t %s\t %-24s\t %s\t", inet_ntoa(client_info.sin_addr), request->method, request->path, request->version);
+//    struct sockaddr_in client_info = get_conn_info(conn_fd);
+//    log("%s\t %s\t %-24s\t %s\t", inet_ntoa(client_info.sin_addr), request->method, request->path, request->version);
 
     thread_job *current_job = (thread_job *) mmalloc(sizeof(thread_job));
     current_job->next = NULL;
@@ -155,7 +157,7 @@ void server_error(int conn_fd, int status) {
     sprintf(header, "HTTP/1.1 %d %s\r\n", status, status_message);
     sprintf(header, "%sContent-type:text/html\r\n", header);
 
-    char *error_message = NULL;
+    const char *error_message = NULL;
     if (status == 404) {
         error_message = "<html>\n"
                 "<head><title>404 Not Found</title></head>\n"

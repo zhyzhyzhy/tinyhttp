@@ -31,6 +31,5 @@ set(SOURCE_FILES
         server/parser.c
         server/parser.h)
 
-#set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-pthread")
 add_executable(tinyhttp ${SOURCE_FILES})
 target_link_libraries(tinyhttp event)

@@ -7,6 +7,7 @@
 #include <event2/buffer.h>
 #include <event2/bufferevent.h>
 #include <event2/listener.h>
+#include <signal.h>
 #include "mysocket.h"
 #include "log.h"
 #include "handle.h"
@@ -30,7 +31,7 @@ int main(int argc, char *argv[])
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
 
-    mempool_init(30, 3, sizeof(struct http_request), sizeof(thread_job), sizeof(struct timeval));
+    mempool_init(200, 3, sizeof(struct http_request), sizeof(thread_job), sizeof(struct timeval));
     read_config("/Users/zhuyichen/git/tinyhttp/config.txt", &config);
 
     log_info("index_file_name: %s", config.index_file_name);

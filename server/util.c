@@ -12,7 +12,7 @@
  * @param buffer  char buffer
  * @param length  the length of buffer
  */
-void non_blocking_write(int conn_fd, char *buffer, int length) {
+void non_blocking_write(int conn_fd, const char *buffer, int length) {
     int has_write = 0;
     int once_write = 0;
     int left_write = length;

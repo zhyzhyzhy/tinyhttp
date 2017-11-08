@@ -90,15 +90,14 @@ int check_read_done(char* request_head) {
         p++;
     }
     p -= 4;
-    //if the last char is "\r\n\r\n" the request is done
+//    if the last char is "\r\n\r\n" the request is done
     if (*p == '\r' && *(p+1) == '\n' && *(p+2) == '\r' && *(p+3) == '\n') {
         return 1;
     }
-    return 0;
+    return 1;
 }
 
 int parse_http_request_line(int conn_fd, char* method, char* path, char* version) {
-
 
     return 1;
 }
