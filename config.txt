@@ -3,5 +3,4 @@ sub_reactor = 2
 target_dir = /Users/zhuyichen/git/hexoblog/public/
 thread_num = 8
 host = 0.0.0.0
-port = 4000
-
+port = 4001

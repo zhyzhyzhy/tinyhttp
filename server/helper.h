@@ -7,5 +7,5 @@
 
 void usage();
 int hex2num(char c);
-int url_decode(const char* str, const int str_size, char* result, const int result_size);
+void url_decode(const char* str, int str_size, char* result);
 #endif //WEBSERVER_HELPER_H

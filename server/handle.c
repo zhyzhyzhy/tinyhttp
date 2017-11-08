@@ -72,27 +72,24 @@ void on_read(int conn_fd, short event, void *arg) {
     char request_head[8192];
     memset(request_head, 0, 8192);
 
-    struct http_request *request = (struct http_request*)arg;
+    struct http_request *request = (struct http_request *) arg;
 
     int has_read = 0;
-    for(;;) {
+    for (;;) {
         ssize_t receive_count = recv(conn_fd, request_head + has_read, 8192 - has_read, 0);
         has_read += receive_count;
         if (receive_count > 0) {
             //防止读半包问题，如果没有读完，则继续读
             if (!check_read_done(request_head)) {
                 continue;
-            }
-            else {
+            } else {
                 struct sockaddr_in client = get_conn_info(conn_fd);
                 sscanf(request_head, "%s %s %s", method, path, version);
                 break;
             }
-        }
-        else if (receive_count < 0 && errno != EAGAIN){
+        } else if (receive_count < 0 && errno != EAGAIN) {
             return;
-        }
-        else {
+        } else {
             //receive_count < 0 encounter error
             //or receive count == 0 close connection
             //close fd
@@ -106,21 +103,25 @@ void on_read(int conn_fd, short event, void *arg) {
     }
 
     strcpy(request->method, method);
-    url_decode(path, 1024, request->path, 1024);
+    url_decode(path, 1024, request->path);
     strcpy(request->version, version);
 
     struct sockaddr_in client_info = get_conn_info(conn_fd);
     log("%s\t %s\t %-24s\t %s\t", inet_ntoa(client_info.sin_addr), request->method, request->path, request->version);
 
-    thread_job *current_job = (thread_job*)mmalloc(sizeof(thread_job));
+    thread_job *current_job = (thread_job *) mmalloc(sizeof(thread_job));
     current_job->next = NULL;
     current_job->func = process_request;
     current_job->arg = request;
     add_job(threadpool, current_job);
 }
 
+/**
+ * process the request
+ * @param arg  struct http_request point
+ */
 void process_request(void *arg) {
-    struct http_request *request = (struct http_request*)arg;
+    struct http_request *request = (struct http_request *) arg;
     char *method = request->method;
     char *path = request->path;
     char *version = request->version;
@@ -133,31 +134,8 @@ void process_request(void *arg) {
             strcpy(str, path);
             strcat(str, "index.html");
             do_get(conn_fd, str + 1, "text/html");
-        }
-        else if (strstr(path, ".html") != NULL || strncmp(path + 1, "", strlen(path) - 1) == 0 ) {
-            do_get(conn_fd, path + 1, "text/html");
-        } else if (strstr(path, ".js") != NULL) {
-            do_get(conn_fd, path + 1, "text/js");
-        } else if (strstr(path, ".css") != NULL) {
-            do_get(conn_fd, path + 1, "text/css");
-        } else if (strstr(path, ".xml") != NULL) {
-            do_get(conn_fd, path + 1, "text/xml");
-        } else if (strstr(path, ".xhtml") != NULL) {
-            do_get(conn_fd, path + 1, "application/xhtml+xml");
-        } else if (strstr(path, ".png") != NULL) {
-            do_get(conn_fd, path + 1, "image/png");
-        } else if (strstr(path, ".gif") != NULL) {
-            do_get(conn_fd, path + 1, "image/gif");
-        } else if (strstr(path, ".jpg") != NULL) {
-            do_get(conn_fd, path + 1, "image/jpg");
-        } else if (strstr(path, ".jpeg") != NULL) {
-            do_get(conn_fd, path + 1, "image/jpeg");
-        } else if (strstr(path, ".jpeg") != NULL) {
-            do_get(conn_fd, path + 1, "image/jpeg");
-        } else if (strstr(path, ".woff") || strstr(path, ".ttf")) {
-            do_get(conn_fd, path + 1, "application/octet-stream");
         } else {
-            do_get(conn_fd, path + 1, "text/plain");
+            do_get(conn_fd, path + 1, parse_mime_type(path));
         }
     } else {
         server_error(conn_fd, 405);
@@ -165,10 +143,15 @@ void process_request(void *arg) {
 }
 
 
+/**
+ * response error
+ * @param conn_fd  the client id
+ * @param status   the response http code
+ */
 void server_error(int conn_fd, int status) {
     char header[1024];
     memset(header, 0, 1024);
-    char *status_message = parse_http_code(status);
+    const char *status_message = parse_http_code(status);
     sprintf(header, "HTTP/1.1 %d %s\r\n", status, status_message);
     sprintf(header, "%sContent-type:text/html\r\n", header);
 
@@ -182,8 +165,7 @@ void server_error(int conn_fd, int status) {
                 "</body>\n"
                 "</html>";
         sprintf(header, "%sContent-length: %lu\r\n\r\n", header, strlen(error_message));
-    }
-    else if (status == 405) {
+    } else if (status == 405) {
         error_message = "<html>\n"
                 "    <head>\n"
                 "        <title>405 Not Allowed</title>\n"
@@ -201,7 +183,7 @@ void server_error(int conn_fd, int status) {
     non_blocking_write(conn_fd, error_message, (int) strlen(error_message));
 }
 
-void do_get(int conn_fd, char *file_name, char *file_type) {
+void do_get(int conn_fd, char *file_name, const char *file_type) {
     char buffer[8192];
     int fd;
 
@@ -241,8 +223,9 @@ void do_get(int conn_fd, char *file_name, char *file_type) {
     //close file fd;
     close(fd);
 }
+
 void on_timeout(int connfd, short event, void *arg) {
-    struct http_request *request = (struct http_request *)arg;
+    struct http_request *request = (struct http_request *) arg;
     event_del(request->timeout);
     mfree(request->tv);
 }

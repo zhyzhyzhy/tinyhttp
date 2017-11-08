@@ -3,6 +3,7 @@
 //
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #define NON_NUM '0'
 
@@ -26,17 +27,24 @@ int hex2num(char c)
     return NON_NUM;
 }
 
-int url_decode(const char* str, const int str_size, char* result, const int result_size)
+/**
+ * parse the url encoded url to common
+ * @param str
+ * @param str_size
+ */
+void url_decode(const char* str, int str_size, char* result)
 {
     char ch,ch1,ch2;
     int i;
-    int j = 0;//record result index
+    //record result index
+    int j = 0;
 
-    if ((str==NULL) || (result==NULL) || (str_size<=0) || (result_size<=0)) {
-        return 0;
+
+    if ((str==NULL) || (result==NULL) || (str_size<=0)) {
+        return;
     }
 
-    for ( i=0; (i<str_size) && (j<result_size); ++i) {
+    for (i = 0; i < str_size; i++) {
         ch = str[i];
         switch (ch) {
             case '+':
@@ -47,7 +55,7 @@ int url_decode(const char* str, const int str_size, char* result, const int resu
                     ch1 = (char) hex2num(str[i + 1]);//高4位
                     ch2 = (char) hex2num(str[i + 2]);//低4位
                     if ((ch1!=NON_NUM) && (ch2!=NON_NUM))
-                        result[j++] = (char)((ch1<<4) | ch2);
+                        result[j++] = ((ch1<<4) | ch2);
                     i += 2;
                     break;
                 } else {
@@ -59,5 +67,4 @@ int url_decode(const char* str, const int str_size, char* result, const int resu
         }
     }
     result[j] = 0;
-    return j;
 }

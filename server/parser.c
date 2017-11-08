@@ -3,7 +3,7 @@
 //
 #include "parser.h"
 #include "mysocket.h"
-
+#include <string.h>
 /**
  * contains the http codes and the response
  */
@@ -16,11 +16,38 @@ http_status_pair http_status[] = {
 };
 
 /**
+ * http mine type
+ */
+http_mime_type mime_type[] = {
+        {".html", "text/html"},
+        {".css", "text/css"},
+        {".js", "text/js"},
+        {".xml", "text/xml"},
+        {".xhtml", "application/xhtml+xml"},
+        {".txt", "text/plain"},
+        {".rtf", "application/rtf"},
+        {".pdf", "application/pdf"},
+        {".word", "application/msword"},
+        {".png", "image/png"},
+        {".gif", "image/gif"},
+        {".jpg", "image/jpeg"},
+        {".jpeg", "image/jpeg"},
+        {".au", "audio/basic"},
+        {".mpeg", "video/mpeg"},
+        {".mpg", "video/mpeg"},
+        {".avi", "video/x-msvideo"},
+        {".gz", "application/x-gzip"},
+        {".tar", "application/x-tar"},
+        {NULL ,"text/plain"}
+};
+
+
+/**
  *
  * @param httpcode the specific httpcode
  * @return the response of the httpcode
  */
-char* parse_http_code(int httpcode) {
+const char* parse_http_code(int httpcode) {
     http_status_pair pair;
     int i = 0;
     pair = http_status[i];
@@ -31,6 +58,25 @@ char* parse_http_code(int httpcode) {
         pair = http_status[++i];
     }
     return NULL;
+}
+
+/**
+ * get the mime type of the request path
+ * @param path the request path
+ * @return  mime type
+ */
+const char* parse_mime_type(const char* path) {
+    http_mime_type type;
+    int index = 0;
+    type = mime_type[index];
+    while (type.type != NULL) {
+        if (strstr(path, type.type) != NULL) {
+            return type.value;
+        }
+        index++;
+        type = mime_type[index];
+    }
+    return type.value;
 }
 
 /**

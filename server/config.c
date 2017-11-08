@@ -54,7 +54,6 @@ void read_config(char* file_name, server_config *config) {
         else if(strcmp(item, "port") == 0) {
             strcpy(config->port, item + i + 1);
         }
-
         memset(item, 0, LINE);
     }
 }

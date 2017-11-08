@@ -12,18 +12,30 @@
 #include "mempool.h"
 #include "log.h"
 
-
-void* memnode_init(char* startaddr, memnode_t* next) {
-    memnode_t* node = (memnode_t*)startaddr;
+/**
+ * init the memnode of startaddr
+ * @param startaddr the start addr of this node
+ * @param next      the addr of next node
+ * @return          the current node
+ */
+void *memnode_init(char *startaddr, memnode_t *next) {
+    memnode_t *node = (memnode_t *) startaddr;
     node->next = next;
     node->data = startaddr + sizeof(memnode_t);
     return node;
 }
 
-void* memblock_init(memblock_t* block, int nodesize, int num) {
+/**
+ *
+ * @param block  the point for the block
+ * @param nodesize the type size
+ * @param num the init capacity the block hold
+ * @return
+ */
+void *memblock_init(memblock_t *block, int nodesize, int num) {
     block->nodesize = nodesize;
-    block->b_start_addr = malloc((size_t)(nodesize+sizeof(memnode_t))*num);
-    block->b_end_addr = block->b_start_addr + (nodesize+sizeof(memnode_t))*num;
+    block->b_start_addr = malloc((size_t) (nodesize + sizeof(memnode_t)) * num);
+    block->b_end_addr = block->b_start_addr + (nodesize + sizeof(memnode_t)) * num;
     block->freenum = num;
     block->toalnum = num;
     block->next = NULL;
@@ -33,15 +45,17 @@ void* memblock_init(memblock_t* block, int nodesize, int num) {
         exit(2);
     }
 
+    //init the block lock
     block->openListLock = malloc(sizeof(pthread_mutex_t));
     pthread_mutex_init(block->openListLock, NULL);
 
-    memnode_t* head = memnode_init(block->b_start_addr, NULL);
+    //init memnode head
+    memnode_t *head = memnode_init(block->b_start_addr, NULL);
     block->openList = head;
 
-    memnode_t* p = head;
+    memnode_t *p = head;
     for (int i = 1; i < num; i++) {
-        memnode_t* next = memnode_init((char*)p + sizeof(memnode_t) + nodesize, p);
+        memnode_t *next = memnode_init((char *) p + sizeof(memnode_t) + nodesize, p);
         p->next = next;
         p = p->next;
         p->next = NULL;
@@ -55,59 +69,80 @@ void* memblock_init(memblock_t* block, int nodesize, int num) {
 //    printf("\n\n");
 }
 
-
-void* mempool_init(int num, int blocksizenums, ...) {
+/**
+ *
+ * @param num the type that memory pool should hold
+ * @param blocksizenums size of each type
+ * @param ...
+ * @return
+ */
+void *mempool_init(int num, int blocksizenums, ...) {
     va_list blocks;
     va_start(blocks, blocksizenums);
 
     mempool = malloc(sizeof(mempool_t));
-    mempool->memblocks = malloc(sizeof(memblock_t) * blocksizenums);
-    mempool->blocksize = blocksizenums;
     if (mempool == NULL) {
-        log_err("can not malloc mempool");
-        exit(2);
+        log_err("can not malloc for memory poll!\nexiting...");
+        exit(1);
     }
+    mempool->memblocks = malloc(sizeof(memblock_t) * blocksizenums);
+    if (mempool->memblocks == NULL) {
+        log_err("can not malloc for memory blocks\nexiting...");
+        exit(1);
+    }
+    mempool->blocksize = blocksizenums;
 
     //初始化各个memblocks
     for (int i = 0; i < blocksizenums; i++) {
         memblock_init((mempool->memblocks) + i, va_arg(blocks, int), num);
     }
+    return NULL;
 
 }
 
-void* bmalloc(memblock_t* block) {
-    memblock_t* blockhead = block;
-    memblock_t* tempblock = block;
+/**
+ * find one node from the target block
+ * if not enough, then malloc new one block
+ * @param block
+ * @return
+ */
+void *bmalloc(memblock_t *block) {
+    memblock_t *blockhead = block;
+    memblock_t *tailblock = block;
+    //check if has enough node
     while (block != NULL) {
-        tempblock = block;
+        tailblock = block;
         pthread_mutex_lock(block->openListLock);
         if (block->freenum == 0) {
+            pthread_mutex_unlock(block->openListLock);
             block = block->next;
-            pthread_mutex_unlock(tempblock->openListLock);
-        }
-        else {
-            pthread_mutex_unlock(tempblock->openListLock);
-            break;
+        } else {
+            //if has enough node
+            memnode_t *node = block->openList;
+            block->openList = node->next;
+            block->freenum--;
+            pthread_mutex_unlock(block->openListLock);
+            return node->data;
         }
     }
 
-    if (block == NULL) {
-        pthread_mutex_lock(blockhead->openListLock);
-        memblock_t* newblock = memblock_init(blockhead, blockhead->nodesize, blockhead->toalnum);
-        tempblock->next = newblock;
-        pthread_mutex_unlock(blockhead->openListLock);
-        return bmalloc(blockhead);
-    }
-    pthread_mutex_lock(block->openListLock);
-    memnode_t* node = block->openList;
-    block->openList = node->next;
-    block->freenum--;
-    pthread_mutex_unlock(block->openListLock);
-//    printf("bmalloc = %p\n", (void*)node->data);
-    return node->data;
+    //not enough node, then malloc new one block
+    pthread_mutex_lock(tailblock->openListLock);
+    //new one block of target size
+    block = malloc(sizeof(memblock_t));
+    memblock_t *newblock = memblock_init(block, blockhead->nodesize, blockhead->toalnum);
+    tailblock->next = newblock;
+    pthread_mutex_unlock(tailblock->openListLock);
+    //then bmalloc again
+    return bmalloc(blockhead);
 }
 
-void* mmalloc(int size) {
+/**
+ * malloc size byte from the memory pool
+ * @param size  the size
+ * @return  the start addr
+ */
+void *mmalloc(int size) {
     memblock_t *block = mempool->memblocks;
     for (int i = 0; i < mempool->blocksize; i++) {
         //找到匹配的block大小
@@ -119,44 +154,63 @@ void* mmalloc(int size) {
     return NULL;
 }
 
-void bfree(memblock_t* block, void* ptr) {
+/**
+ * free the memnode in the target block
+ * @param block  the target block
+ * @param ptr    the target ptr
+ */
+void bfree(memblock_t *block, void *ptr) {
     pthread_mutex_lock(block->openListLock);
-    memnode_t* node = (memnode_t*)((char*)ptr - sizeof(memnode_t));
-//    printf("bfree =   %p\n", ptr);
+    memnode_t *node = (memnode_t *) ((char *) ptr - sizeof(memnode_t));
+    debug("bfree = %p", ptr);
     node->next = block->openList;
     block->openList = node;
     block->freenum++;
     pthread_mutex_unlock(block->openListLock);
 }
 
-void mfree(void* ptr) {
+/**
+ * free the target addr
+ * @param ptr the target addr
+ */
+void mfree(void *ptr) {
     memblock_t *blocks = mempool->memblocks;
+    //if is in memory pool
     for (int i = 0; i < mempool->blocksize; i++) {
-        memblock_t* headblock = blocks + i;
+        memblock_t *headblock = blocks + i;
         while (headblock != NULL) {
-            if (ptr > headblock->b_start_addr && ptr < (void*)headblock->b_end_addr) {
+            if (ptr > headblock->b_start_addr && ptr < (void *) headblock->b_end_addr) {
                 bfree(blocks + i, ptr);
                 return;
             }
             headblock = headblock->next;
         }
     }
+    //if not, free directly
     free(ptr);
 }
-void memblock_destroy(memblock_t* block) {
+
+//free the lock in the block
+void memblock_destroy(memblock_t *block) {
     free(block->openListLock);
+    free(block->b_start_addr);
 }
+
+/**
+ * destroy the memory pool
+ */
 void mempool_destroy() {
     memblock_t *blocks = mempool->memblocks;
     for (int i = 0; i < mempool->blocksize; i++) {
-        memblock_t* headblock = blocks + i;
+        memblock_t *headblock = blocks + i;
         while (headblock != NULL) {
-            memblock_t* temp = headblock;
+            memblock_t *temp = headblock;
             headblock = headblock->next;
             memblock_destroy(temp);
         }
     }
     free(mempool->memblocks);
+    free(mempool);
 }
 
 //int main()

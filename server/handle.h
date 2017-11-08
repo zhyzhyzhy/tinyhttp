@@ -4,7 +4,7 @@
 
 #ifndef WEBSERVER_HANDLE_H
 #define WEBSERVER_HANDLE_H
-void do_get(int connfd, char* file_name, char* file_type);
+void do_get(int connfd, char* file_name, const char* file_type);
 void on_accept(int serverfd,short events, void* arg);
 void server_error(int connfd, int status);
 void on_read(int connfd,short event,void *arg);
