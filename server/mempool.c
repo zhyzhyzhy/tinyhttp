@@ -149,6 +149,7 @@ void *mmalloc(int size) {
     for (int i = 0; i < mempool->blocksize; i++) {
         //找到匹配的block大小
         if (block[i].nodesize == size) {
+            // log_info("mmalloc");
             return bmalloc(block + i);
         }
     }
@@ -178,6 +179,7 @@ void bfree(memblock_t *block, void *ptr) {
 void mfree(void *ptr) {
     memblock_t *blocks = mempool->memblocks;
     //if is in memory pool
+    // log_info("mfree");
     for (int i = 0; i < mempool->blocksize; i++) {
         memblock_t *headblock = blocks + i;
         while (headblock != NULL) {

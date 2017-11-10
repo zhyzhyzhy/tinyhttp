@@ -65,7 +65,7 @@ threadpool_t* threadpool_init(int thread_num) {
         log_err("can not malloc for threads\nexiting...");
         exit(1);
     }
-    pool->job_head = (thread_job*)malloc(sizeof(thread_job));
+    pool->job_head = (thread_job*)mmalloc(sizeof(thread_job));
     pool->job_count = 0;
     pool->thread_count = thread_num;
     pool->shutdown = 0;

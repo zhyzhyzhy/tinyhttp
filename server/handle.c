@@ -32,7 +32,7 @@ extern server_config config;
 //the count of the request
 //for the use of allocation to subReactor
 //see #on_accept
-static int count;
+int count;
 
 /**
  * the callback of the accept event
@@ -43,10 +43,11 @@ static int count;
  */
 void on_accept(int listen_fd, short events, void *arg) {
     int conn_fd = accept(listen_fd, NULL, 0);
+    //log_info("accept %d\n", conn_fd);
+    // log_info("count %d\n", count);
     if (conn_fd < 0) {
         return;
     }
-
     set_no_blocking(conn_fd);
     debug("the count is %d ", count);
     int index = ++count % config.sub_reactor;
@@ -61,7 +62,19 @@ void on_accept(int listen_fd, short events, void *arg) {
  * @param arg      struct http_request*
  */
 void on_read(int conn_fd, short event, void *arg) {
+    struct http_request *request = (struct http_request *) arg;
+    thread_job *current_job = (thread_job *) mmalloc(sizeof(thread_job));
+    current_job->next = NULL;
+    current_job->func = process_request;
+    current_job->arg = request;
+    add_job(threadpool, current_job);
+}
 
+/**
+ * process the request
+ * @param arg  struct http_request point
+ */
+void process_request(void *arg) {
     char method[24];
     char path[1024];
     char version[24];
@@ -74,6 +87,7 @@ void on_read(int conn_fd, short event, void *arg) {
     memset(request_head, 0, 8192);
 
     struct http_request *request = (struct http_request *) arg;
+    int conn_fd = request->connfd;
 
     int has_read = 0;
     for (;;) {
@@ -84,7 +98,7 @@ void on_read(int conn_fd, short event, void *arg) {
             if (!check_read_done(request_head)) {
                 continue;
             } else {
-                struct sockaddr_in client = get_conn_info(conn_fd);
+              //  struct sockaddr_in client = get_conn_info(conn_fd);
                 sscanf(request_head, "%s %s %s", method, path, version);
                 break;
             }
@@ -98,6 +112,7 @@ void on_read(int conn_fd, short event, void *arg) {
             event_free(request->pread);
             mfree(request);
             close(conn_fd);
+            //log_info("close %d", conn_fd);
             return;
         }
 
@@ -105,29 +120,10 @@ void on_read(int conn_fd, short event, void *arg) {
 
     strcpy(request->method, method);
     url_decode(path, 1024, request->path);
-//    strcpy(path, request->path);
     strcpy(request->version, version);
 
 //    struct sockaddr_in client_info = get_conn_info(conn_fd);
 //    log("%s\t %s\t %-24s\t %s\t", inet_ntoa(client_info.sin_addr), request->method, request->path, request->version);
-
-    thread_job *current_job = (thread_job *) mmalloc(sizeof(thread_job));
-    current_job->next = NULL;
-    current_job->func = process_request;
-    current_job->arg = request;
-    add_job(threadpool, current_job);
-}
-
-/**
- * process the request
- * @param arg  struct http_request point
- */
-void process_request(void *arg) {
-    struct http_request *request = (struct http_request *) arg;
-    char *method = request->method;
-    char *path = request->path;
-    char *version = request->version;
-    int conn_fd = request->connfd;
 
     if (strncmp(method, "GET", 3) == 0) {
         if (is_end_with_ch(path, '/')) {
@@ -186,7 +182,7 @@ void server_error(int conn_fd, int status) {
 }
 
 void do_get(int conn_fd, char *file_name, const char *file_type) {
-    char buffer[8192];
+    char buffer[16392];
     int fd;
 
     struct stat file;
@@ -218,7 +214,7 @@ void do_get(int conn_fd, char *file_name, const char *file_type) {
 
     // send body
     int byte_count = 0;
-    while ((byte_count = (int) read(fd, buffer, 8192)) > 0) {
+    while ((byte_count = (int) read(fd, buffer, 16392)) > 0) {
         non_blocking_write(conn_fd, buffer, byte_count);
     }
 

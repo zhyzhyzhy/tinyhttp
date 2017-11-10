@@ -10,7 +10,7 @@
 struct thread_job {
     void (*func)(void *arg);
     void *arg;
-    struct thread_job *next;
+    struct thread_job* next;
 };
 
 typedef struct thread_job thread_job;
@@ -20,6 +20,7 @@ struct threadpool_t {
     pthread_cond_t *cond;
     int job_count;
     thread_job* job_head;
+    thread_job* job_tail;
     pthread_t *pthreads;
     int thread_count;
     int shutdown;

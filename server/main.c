@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     signal(SIGKILL, sig);
     signal(SIGTERM, sig);
 
-    mempool_init(200, 3, sizeof(struct http_request), sizeof(thread_job), sizeof(struct timeval));
+    mempool_init(3000, 3, sizeof(struct http_request), sizeof(thread_job), sizeof(struct timeval));
     read_config("/Users/zhuyichen/git/tinyhttp/config.txt", &config);
 
     log_info("index_file_name: %s", config.index_file_name);

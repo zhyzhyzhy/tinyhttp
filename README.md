@@ -10,17 +10,17 @@
 
 ## 配置文件参数
 * index_file_name     
-主页名字  
+  主页名字  
 * sub_reactor     
-子Reactor个数  
+  子Reactor个数  
 * target_dir     
-存放主要的root目录  
+  存放主要的root目录  
 * thread_num     
-线程池线程个数  
+  线程池线程个数  
 * host     
-绑定的本地host  
+  绑定的本地host  
 * port   
-端口设定  
+  端口设定  
 
 例：
 ```
@@ -31,3 +31,5 @@ thread_num = 10
 host = 127.0.0.1
 port = 4002
 ```
+
+

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <event2/event.h>
 #include <event.h>
+#include <event2/thread.h>
 #include <unistd.h>
 #include "handle.h"
 #include "mempool.h"
@@ -29,7 +30,7 @@ void on_notify(int notify_fd, short events, void *arg) {
     int conn_fd;
     if (recv(notify_fd, &conn_fd, sizeof(int), 0) > 0) {
         struct http_request *request = (struct http_request *) mmalloc(sizeof(struct http_request));
-        struct event *pread = event_new(libevent_thread->base, conn_fd, EV_READ | EV_PERSIST, on_read, request);
+        struct event *pread = event_new(libevent_thread->base, conn_fd, EV_READ | EV_PERSIST | EV_ET, on_read, request);
 
         //set the timeout event util 20 mins if the target fd is silent
         struct event* timeout = evtimer_new(libevent_thread->base, on_timeout, request);
@@ -45,7 +46,7 @@ void on_notify(int notify_fd, short events, void *arg) {
         request->base = libevent_thread->base;
         request->connfd = conn_fd;
 
-        event_set(pread, conn_fd, EV_READ | EV_PERSIST, on_read, request);
+        // event_set(pread, conn_fd, EV_READ | EV_PERSIST | EV_ET, on_read, request);
         event_base_set(libevent_thread->base, pread);
         event_add(pread, NULL);
     }
@@ -59,9 +60,9 @@ void on_notify(int notify_fd, short events, void *arg) {
 void* start_dispatch(void *arg) {
     libevent_reactor_t *libevent_thread = (libevent_reactor_t* )arg;
     //new one base_event
+    evthread_use_pthreads();
     libevent_thread->base = event_base_new();
     libevent_thread->event = event_new(libevent_thread->base, libevent_thread->read_fd, EV_READ | EV_PERSIST, on_notify, libevent_thread);
-    event_base_set(libevent_thread->base, libevent_thread->event);
     event_add(libevent_thread->event, NULL);
     event_base_dispatch(libevent_thread->base);
 

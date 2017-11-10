@@ -1,6 +1,6 @@
 index_file_name = index.html
-sub_reactor = 4
+sub_reactor = 2
 target_dir = /Users/zhuyichen/git/hexoblog/public/
-thread_num = 6
+thread_num = 5
 host = 0.0.0.0
 port = 4001
