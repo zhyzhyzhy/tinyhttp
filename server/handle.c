@@ -102,7 +102,7 @@ void process_request(void *arg) {
                 sscanf(request_head, "%s %s %s", method, path, version);
                 break;
             }
-        } else if (receive_count < 0 && errno != EAGAIN) {
+        } else if (receive_count < 0 && errno == EAGAIN) {
             return;
         } else {
             //receive_count < 0 encounter error
